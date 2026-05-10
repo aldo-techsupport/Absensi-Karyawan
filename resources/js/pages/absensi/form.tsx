@@ -214,10 +214,14 @@ function Divider({ label }: { label: string }) {
 export default function AbsensiForm({
     defaultTanggal,
     formConfigs = {},
+    formIsOpen = true,
+    closedMessage = 'Form absensi sedang ditutup. Silakan hubungi admin.',
 }: {
     defaultTanggal: string;
     defaultHari: string;
     formConfigs: Record<string, FieldConfig>;
+    formIsOpen?: boolean;
+    closedMessage?: string;
 }) {
     // Helper: ambil opsi dari config, tambahkan 'Other' di akhir
     const opts = (key: string, fallback: string[]) =>
@@ -319,6 +323,20 @@ export default function AbsensiForm({
                         </div>
                     </div>
 
+                    {/* ── Form Ditutup ── */}
+                    {!formIsOpen && (
+                        <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-red-200 bg-red-50 p-8 text-center dark:border-red-800 dark:bg-red-950/30">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
+                                <span className="text-3xl">🔒</span>
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-red-800 dark:text-red-300">Absen Ditutup</h2>
+                                <p className="mt-1 text-sm text-red-700 dark:text-red-400">{closedMessage}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {formIsOpen && (
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-sm dark:bg-gray-900">
 
@@ -641,6 +659,7 @@ export default function AbsensiForm({
 
                         </div>
                     </form>
+                    )}
                 </div>
             </div>
         </>

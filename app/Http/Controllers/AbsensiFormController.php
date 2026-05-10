@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Absensi;
+use App\Models\FormSetting;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,15 +14,26 @@ class AbsensiFormController extends Controller
 {
     public function create(): Response
     {
+        $setting = FormSetting::instance();
+        $isOpen  = $setting->isOpen();
+
         return Inertia::render('absensi/form', [
             'defaultTanggal' => Carbon::today()->format('Y-m-d'),
             'defaultHari'    => Carbon::today()->locale('id')->isoFormat('dddd'),
             'formConfigs'    => FormConfigController::getActiveConfigs(),
+            'formIsOpen'     => $isOpen,
+            'closedMessage'  => $setting->closed_message,
         ]);
     }
 
     public function submit(Request $request): RedirectResponse
     {
+        // Cek apakah form sedang terbuka
+        $setting = FormSetting::instance();
+        if (! $setting->isOpen()) {
+            return back()->withErrors(['form' => $setting->closed_message])->withInput();
+        }
+
         $validated = $request->validate([
             'nama'            => 'required|string|max:255',
             'nrp'             => 'required|string|max:50',

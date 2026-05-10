@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Absensi;
+use App\Models\FormSetting;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,8 @@ class AbsensiController extends Controller
 
         $trashCount = Absensi::onlyTrashed()->count();
 
+        $formSetting = FormSetting::instance();
+
         return Inertia::render('absensi/dashboard', [
             'absensi'        => $filtered,
             'stats'          => $stats,
@@ -68,9 +71,18 @@ class AbsensiController extends Controller
                 'batas_jam'    => $filterBatasJam,
                 'terlambat'    => $filterTerlambat,
             ],
-            'totalRows'  => $totalRows,
-            'trashCount' => $trashCount,
-            'error'      => null,
+            'totalRows'   => $totalRows,
+            'trashCount'  => $trashCount,
+            'error'       => null,
+            'formSetting' => [
+                'form_status'      => $formSetting->form_status,
+                'is_open'          => $formSetting->isOpen(),
+                'closed_message'   => $formSetting->closed_message,
+                'schedule_enabled' => $formSetting->schedule_enabled,
+                'schedule_days'    => $formSetting->schedule_days ?? ['1','2','3','4','5'],
+                'schedule_start'   => $formSetting->schedule_start ?? '06:00',
+                'schedule_end'     => $formSetting->schedule_end ?? '10:00',
+            ],
         ]);
     }
 

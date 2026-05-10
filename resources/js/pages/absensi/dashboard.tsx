@@ -7,10 +7,13 @@ import {
     Download,
     ExternalLink,
     Pencil,
+    PlayCircle,
     Search,
     ShieldAlert,
     ShieldCheck,
     ShieldX,
+    StopCircle,
+    Timer,
     Trash2,
     Users,
 } from 'lucide-react';
@@ -113,6 +116,15 @@ interface Props {
     error?: string | null;
     totalRows: number;
     trashCount: number;
+    formSetting?: {
+        form_status: 'open' | 'closed';
+        is_open: boolean;
+        closed_message: string;
+        schedule_enabled: boolean;
+        schedule_days: string[];
+        schedule_start: string;
+        schedule_end: string;
+    };
 }
 
 // ─── Status Tidur Badge ───────────────────────────────────────────────────────
@@ -160,6 +172,166 @@ function ShiftBadge({ shift }: { shift: string }) {
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[shift] ?? 'bg-gray-100 text-gray-700'}`}>
             Shift {shift}
         </span>
+    );
+}
+
+// ─── Schedule Modal ───────────────────────────────────────────────────────────
+
+const HARI_LABELS: Record<string, string> = {
+    '1': 'Senin', '2': 'Selasa', '3': 'Rabu', '4': 'Kamis',
+    '5': 'Jumat', '6': 'Sabtu', '7': 'Minggu',
+};
+
+function ScheduleModal({
+    open,
+    onClose,
+    setting,
+}: {
+    open: boolean;
+    onClose: () => void;
+    setting: {
+        schedule_enabled: boolean;
+        schedule_days: string[];
+        schedule_start: string;
+        schedule_end: string;
+        closed_message: string;
+    };
+}) {
+    const [enabled, setEnabled]       = useState(setting.schedule_enabled);
+    const [days, setDays]             = useState<string[]>(setting.schedule_days);
+    const [start, setStart]           = useState(setting.schedule_start);
+    const [end, setEnd]               = useState(setting.schedule_end);
+    const [message, setMessage]       = useState(setting.closed_message);
+    const [saving, setSaving]         = useState(false);
+
+    // Sync when modal reopens
+    useEffect(() => {
+        if (open) {
+            setEnabled(setting.schedule_enabled);
+            setDays(setting.schedule_days);
+            setStart(setting.schedule_start);
+            setEnd(setting.schedule_end);
+            setMessage(setting.closed_message);
+        }
+    }, [open]);
+
+    const toggleDay = (d: string) => {
+        setDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
+    };
+
+    const handleSave = () => {
+        setSaving(true);
+        router.post('/absensi/form-setting/schedule', {
+            schedule_enabled: enabled,
+            schedule_days:    days,
+            schedule_start:   start,
+            schedule_end:     end,
+            closed_message:   message,
+        }, {
+            onSuccess: () => { setSaving(false); onClose(); },
+            onError:   () => setSaving(false),
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Timer className="h-5 w-5 text-blue-600" />
+                        Jadwal Buka/Tutup Form
+                    </DialogTitle>
+                    <DialogDescription>
+                        Atur jadwal otomatis kapan form absensi bisa diisi.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-5">
+                    {/* Toggle schedule */}
+                    <div className="flex items-center justify-between rounded-xl border bg-muted/30 p-4">
+                        <div>
+                            <p className="font-medium text-sm">Jadwal Otomatis</p>
+                            <p className="text-xs text-muted-foreground">
+                                {enabled ? 'Form buka/tutup sesuai jadwal' : 'Gunakan tombol Start/Stop manual'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={enabled}
+                            onClick={() => setEnabled(!enabled)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                enabled ? 'bg-blue-600' : 'bg-muted-foreground/30'
+                            }`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                enabled ? 'translate-x-6' : 'translate-x-1'
+                            }`} />
+                        </button>
+                    </div>
+
+                    {/* Hari aktif */}
+                    <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Hari Aktif</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {Object.entries(HARI_LABELS).map(([val, label]) => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => toggleDay(val)}
+                                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                                        days.includes(val)
+                                            ? 'bg-blue-600 text-white'
+                                            : 'border border-muted-foreground/30 text-muted-foreground hover:border-blue-400 hover:text-blue-600'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Jam buka & tutup */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-sm font-semibold">Jam Buka</Label>
+                            <Input
+                                type="time"
+                                value={start}
+                                onChange={(e) => setStart(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-sm font-semibold">Jam Tutup</Label>
+                            <Input
+                                type="time"
+                                value={end}
+                                onChange={(e) => setEnd(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Pesan saat ditutup */}
+                    <div className="space-y-1.5">
+                        <Label className="text-sm font-semibold">Pesan saat Form Ditutup</Label>
+                        <textarea
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            rows={2}
+                            placeholder="Contoh: Form absensi sudah ditutup. Hubungi admin."
+                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose} disabled={saving}>Batal</Button>
+                    <Button onClick={handleSave} disabled={saving}>
+                        {saving ? 'Menyimpan...' : 'Simpan Jadwal'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -215,6 +387,7 @@ function DeleteConfirmModal({
 export default function AbsensiDashboard({
     absensi, stats, namaList, bulanList, tahunList,
     departemenList, shiftList, sectionList, filters, error, totalRows, trashCount,
+    formSetting,
 }: Props) {
     const { auth } = usePage().props as any;
     const isAdmin: boolean = auth?.isAdmin ?? false;
@@ -222,6 +395,18 @@ export default function AbsensiDashboard({
     const [batasJam, setBatasJam] = useState(filters.batas_jam ?? '09:00');
     const [deleteRow, setDeleteRow] = useState<AbsensiRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [showSchedule, setShowSchedule] = useState(false);
+    const [isTogglingForm, setIsTogglingForm] = useState(false);
+
+    const formIsOpen = formSetting?.is_open ?? true;
+    const scheduleEnabled = formSetting?.schedule_enabled ?? false;
+
+    const handleToggleForm = () => {
+        setIsTogglingForm(true);
+        router.post('/absensi/form-setting/toggle', {}, {
+            onFinish: () => setIsTogglingForm(false),
+        });
+    };
 
     const applyFilter = (updates: Partial<Filters>) => {
         const merged = { ...filters, ...updates };
@@ -495,7 +680,7 @@ export default function AbsensiDashboard({
                             {totalRows} total entri tersimpan
                         </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {isAdmin && (
                             <Button
                                 variant="outline"
@@ -535,24 +720,95 @@ export default function AbsensiDashboard({
                             Buka Form
                         </Button>
                         {isAdmin && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => router.get('/absensi/form-config')}
-                                className="w-fit gap-2"
-                            >
-                                <Pencil className="h-4 w-4" />
-                                Atur Form
-                            </Button>
+                            <>
+                                {/* Start / Stop tombol — hanya tampil jika schedule tidak aktif */}
+                                {!scheduleEnabled && (
+                                    <Button
+                                        size="sm"
+                                        onClick={handleToggleForm}
+                                        disabled={isTogglingForm}
+                                        className={`w-fit gap-2 ${
+                                            formIsOpen
+                                                ? 'bg-red-600 hover:bg-red-700 text-white'
+                                                : 'bg-green-600 hover:bg-green-700 text-white'
+                                        }`}
+                                    >
+                                        {isTogglingForm ? (
+                                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                        ) : formIsOpen ? (
+                                            <StopCircle className="h-4 w-4" />
+                                        ) : (
+                                            <PlayCircle className="h-4 w-4" />
+                                        )}
+                                        {isTogglingForm ? 'Memproses...' : formIsOpen ? 'Stop Form' : 'Start Form'}
+                                    </Button>
+                                )}
+
+                                {/* Status badge jika schedule aktif */}
+                                {scheduleEnabled && (
+                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                                        formIsOpen
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                    }`}>
+                                        <span className={`h-2 w-2 rounded-full ${formIsOpen ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                                        {formIsOpen ? 'Form Terbuka' : 'Form Ditutup'}
+                                    </span>
+                                )}
+
+                                {/* Tombol Jadwal */}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowSchedule(true)}
+                                    className="w-fit gap-2"
+                                >
+                                    <Timer className="h-4 w-4" />
+                                    Jadwal
+                                    {scheduleEnabled && (
+                                        <span className="h-2 w-2 rounded-full bg-blue-500" />
+                                    )}
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => router.get('/absensi/form-config')}
+                                    className="w-fit gap-2"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                    Atur Form
+                                </Button>
+                            </>
                         )}
                     </div>
                 </div>
+
+                {/* ── Schedule Modal ── */}
+                {isAdmin && formSetting && (
+                    <ScheduleModal
+                        open={showSchedule}
+                        onClose={() => setShowSchedule(false)}
+                        setting={formSetting}
+                    />
+                )}
 
                 {/* ── Error ── */}
                 {error && (
                     <Alert variant="destructive">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
+
+                {/* ── Status Form Banner ── */}
+                {isAdmin && formSetting && !formSetting.is_open && (
+                    <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30">
+                        <StopCircle className="h-4 w-4 text-red-600" />
+                        <AlertDescription className="text-red-800 dark:text-red-300">
+                            <strong>Form absensi sedang ditutup.</strong> Karyawan tidak bisa mengisi absensi saat ini.
+                            {scheduleEnabled && ' (Dikelola oleh jadwal otomatis)'}
+                        </AlertDescription>
                     </Alert>
                 )}
 

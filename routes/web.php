@@ -4,6 +4,7 @@ use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\AbsensiEditController;
 use App\Http\Controllers\AbsensiFormController;
 use App\Http\Controllers\FormConfigController;
+use App\Http\Controllers\FormSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login')->name('home');
@@ -37,6 +38,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('absensi/form-config/{id}', [FormConfigController::class, 'update'])->name('absensi.form-config.update');
         Route::post('absensi/form-config/{id}/toggle', [FormConfigController::class, 'toggle'])->name('absensi.form-config.toggle');
         Route::delete('absensi/form-config/{id}', [FormConfigController::class, 'destroy'])->name('absensi.form-config.destroy');
+
+        // ── Form Setting (start/stop + schedule) ──
+        Route::post('absensi/form-setting/toggle', [FormSettingController::class, 'toggle'])->name('absensi.form-setting.toggle');
+        Route::post('absensi/form-setting/schedule', [FormSettingController::class, 'updateSchedule'])->name('absensi.form-setting.schedule');
     });
 });
 
