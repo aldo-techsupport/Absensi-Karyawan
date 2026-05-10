@@ -4,6 +4,7 @@ import {
     Building2,
     Calendar,
     Clock,
+    Download,
     RefreshCw,
     Search,
     ShieldAlert,
@@ -12,6 +13,7 @@ import {
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -187,6 +189,56 @@ export default function AbsensiDashboard({
         router.get('/absensi', {}, { preserveState: false, replace: true });
     };
 
+    const handleExport = () => {
+        // Siapkan data untuk Excel
+        const rows = absensi.map((row, idx) => ({
+            'No': idx + 1,
+            'ID': row.daily_id ?? '',
+            'Tanggal': row.tanggal_formatted ?? row.tanggal ?? '',
+            'Hari': row.hari ?? '',
+            'Shift': row.shift ? `Shift ${row.shift}` : '',
+            'Waktu Mulai': row.waktu_mulai ?? '',
+            'Nama': row.nama ?? '',
+            'Section': row.section ?? '',
+            'Jabatan': row.jabatan ?? '',
+            'NRP': row.nrp ?? '',
+            'Departemen': row.departemen ?? '',
+            'Kegiatan': row.kegiatan ?? '',
+            'Mulai Tidur': row.mulai_tidur ?? '',
+            'Bangun Tidur': row.bangun_tidur ?? '',
+            'Durasi Tidur': row.durasi_tidur_label ?? '',
+            'Status Tidur': row.status_tidur ?? '',
+            'Jam Isi': row.jam_isi ?? '',
+            'Keterlambatan': row.terlambat
+                ? `Terlambat +${row.selisih_terlambat}`
+                : row.jam_isi ? 'Tepat Waktu' : '',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+
+        // Auto column width
+        const colWidths = Object.keys(rows[0] ?? {}).map((key) => ({
+            wch: Math.max(key.length, ...rows.map((r) => String(r[key as keyof typeof r] ?? '').length)) + 2,
+        }));
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
+
+        // Nama file dengan info filter aktif
+        const parts = ['Absensi'];
+        if (filters.bulan) parts.push(BULAN_NAMES[filters.bulan] ?? filters.bulan);
+        if (filters.tahun) parts.push(filters.tahun);
+        if (filters.departemen) parts.push(filters.departemen);
+        if (filters.section) parts.push(filters.section);
+        if (filters.shift) parts.push(`Shift${filters.shift}`);
+        if (filters.terlambat === '1') parts.push('Terlambat');
+        if (filters.terlambat === '0') parts.push('TepakWaktu');
+        const filename = parts.join('_') + '.xlsx';
+
+        XLSX.writeFile(wb, filename);
+    };
+
     const hasActiveFilters = Object.values(filters).some(Boolean);
 
     // ── Stat cards ──
@@ -263,10 +315,31 @@ export default function AbsensiDashboard({
                             Sumber: Google Sheets · {totalRows} total entri
                         </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="w-fit gap-2">
-                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        Refresh Data
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleExport}
+                            disabled={absensi.length === 0}
+                            className="w-fit gap-2"
+                        >
+                            <Download className="h-4 w-4" />
+                            Export Excel
+                            {absensi.length > 0 && (
+                                <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs">{absensi.length}</span>
+                            )}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className="w-fit gap-2"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                            Refresh Data
+                        </Button>
+                    </div>
                 </div>
 
                 {/* ── Error ── */}
