@@ -159,6 +159,39 @@ class AbsensiController extends Controller
     }
 
     /**
+     * Konversi waktu format AM/PM ke 24 jam (HH:MM).
+     * Contoh: "8:15:00 AM" -> "08:15", "11:15:00 PM" -> "23:15"
+     */
+    private function to24Hour(string $time): string
+    {
+        if (empty($time)) return '';
+
+        // Sudah format 24 jam (tidak ada AM/PM)
+        if (stripos($time, 'AM') === false && stripos($time, 'PM') === false) {
+            // Pastikan format HH:MM
+            try {
+                return Carbon::parse($time)->format('H:i');
+            } catch (\Exception $e) {
+                return $time;
+            }
+        }
+
+        try {
+            return Carbon::createFromFormat('g:i:s A', strtoupper(trim($time)))->format('H:i');
+        } catch (\Exception $e) {
+            try {
+                return Carbon::createFromFormat('g:i A', strtoupper(trim($time)))->format('H:i');
+            } catch (\Exception $e2) {
+                try {
+                    return Carbon::parse($time)->format('H:i');
+                } catch (\Exception $e3) {
+                    return $time;
+                }
+            }
+        }
+    }
+
+    /**
      * Generate ID like ADI0001, ADI0002 per karyawan secara berurutan.
      */
     private function generateDailyId(string $nama, array &$counters): string
@@ -191,14 +224,14 @@ class AbsensiController extends Controller
             'hari'        => $record['hari pelaksanaan'] ?? '',
             'tanggal'     => $record['tanggal pelaksanaan'] ?? '',
             'shift'       => $record['shift kerja'] ?? '',
-            'waktu_mulai' => $record['waktu mulai (jam)'] ?? '',
+            'waktu_mulai' => $this->to24Hour($record['waktu mulai (jam)'] ?? ''),
             'perusahaan'  => $record['perusahaan pelaksana'] ?? '',
             'departemen'  => $record['departemen pelaksana'] ?? '',
             'kegiatan'    => $record['kegiatan'] ?? '',
             'nama'        => trim($record['nama '] ?? $record['nama'] ?? ''),
             'nrp'         => $record['nrp'] ?? '',
-            'mulai_tidur' => $record['mulai tidur'] ?? '',
-            'bangun_tidur'=> $record['bangun tidur'] ?? '',
+            'mulai_tidur' => $this->to24Hour($record['mulai tidur'] ?? ''),
+            'bangun_tidur'=> $this->to24Hour($record['bangun tidur'] ?? ''),
             'jabatan'     => $record['jabatan'] ?? '',
             'section'     => $record['section'] ?? '',
         ];
