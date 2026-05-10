@@ -5,6 +5,7 @@ use App\Http\Controllers\AbsensiEditController;
 use App\Http\Controllers\AbsensiFormController;
 use App\Http\Controllers\FormConfigController;
 use App\Http\Controllers\FormSettingController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login')->name('home');
@@ -42,6 +43,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // ── Form Setting (start/stop + schedule) ──
         Route::post('absensi/form-setting/toggle', [FormSettingController::class, 'toggle'])->name('absensi.form-setting.toggle');
         Route::post('absensi/form-setting/schedule', [FormSettingController::class, 'updateSchedule'])->name('absensi.form-setting.schedule');
+
+        // ── Kelola User ──
+        Route::get('users', [UserController::class, 'index'])->name('users.index');
+        Route::post('users', [UserController::class, 'store'])->name('users.store');
+        Route::put('users/{id}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 });
 
