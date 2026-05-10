@@ -158,6 +158,10 @@ export default function AbsensiDashboard({
     const applyFilter = (updates: Partial<Filters>) => {
         const merged = { ...filters, ...updates };
         const params: Record<string, string> = {};
+
+        // Selalu sertakan batas_jam (pakai state lokal sebagai fallback)
+        params.batas_jam = merged.batas_jam ?? batasJam ?? '09:00';
+
         if (merged.bulan) params.bulan = merged.bulan;
         if (merged.tahun) params.tahun = merged.tahun;
         if (merged.nama) params.nama = merged.nama;
@@ -165,8 +169,11 @@ export default function AbsensiDashboard({
         if (merged.shift) params.shift = merged.shift;
         if (merged.status_tidur) params.status_tidur = merged.status_tidur;
         if (merged.section) params.section = merged.section;
-        if (merged.batas_jam) params.batas_jam = merged.batas_jam;
-        if (merged.terlambat) params.terlambat = merged.terlambat;
+        // terlambat bisa '0' (falsy) jadi pakai !== null/undefined
+        if (merged.terlambat != null && merged.terlambat !== '') {
+            params.terlambat = merged.terlambat;
+        }
+
         router.get('/absensi', params, { preserveState: true, replace: true });
     };
 
