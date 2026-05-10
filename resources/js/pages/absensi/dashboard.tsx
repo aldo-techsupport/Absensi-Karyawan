@@ -13,7 +13,7 @@ import {
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -214,13 +214,98 @@ export default function AbsensiDashboard({
                 : row.jam_isi ? 'Tepat Waktu' : '',
         }));
 
-        const ws = XLSX.utils.json_to_sheet(rows);
+        const headers = Object.keys(rows[0] ?? {});
+        const colCount = headers.length;
+
+        // Warna per status tidur
+        const STATUS_COLORS: Record<string, { bg: string; font: string }> = {
+            'FIT TO WORK':     { bg: 'C6EFCE', font: '276221' }, // hijau
+            'COACHING ATASAN': { bg: 'FFEB9C', font: '9C6500' }, // kuning
+            'FATIGUE RISK':    { bg: 'FFC7CE', font: '9C0006' }, // merah
+        };
+
+        // Build worksheet manually agar bisa styling per cell
+        const wsData: (string | number)[][] = [
+            headers,
+            ...rows.map(r => headers.map(h => r[h as keyof typeof r] as string | number)),
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Style header row (baris 1 = index 0)
+        for (let c = 0; c < colCount; c++) {
+            const cellRef = XLSX.utils.encode_cell({ r: 0, c });
+            if (!ws[cellRef]) continue;
+            ws[cellRef].s = {
+                font: { bold: true, color: { rgb: 'FFFFFF' } },
+                fill: { fgColor: { rgb: '1F4E79' } },
+                alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+                border: {
+                    top:    { style: 'thin', color: { rgb: 'AAAAAA' } },
+                    bottom: { style: 'thin', color: { rgb: 'AAAAAA' } },
+                    left:   { style: 'thin', color: { rgb: 'AAAAAA' } },
+                    right:  { style: 'thin', color: { rgb: 'AAAAAA' } },
+                },
+            };
+        }
+
+        // Style data rows
+        const statusColIdx = headers.indexOf('Status Tidur');
+        const durasiColIdx = headers.indexOf('Durasi Tidur');
+
+        rows.forEach((row, rowIdx) => {
+            const status = row['Status Tidur'];
+            const color = STATUS_COLORS[status];
+            const excelRow = rowIdx + 1; // +1 karena header di row 0
+
+            for (let c = 0; c < colCount; c++) {
+                const cellRef = XLSX.utils.encode_cell({ r: excelRow, c });
+                if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+
+                const isColoredCol = c === statusColIdx || c === durasiColIdx;
+                const isEven = rowIdx % 2 === 0;
+
+                const baseStyle = {
+                    alignment: { vertical: 'center', wrapText: false },
+                    border: {
+                        top:    { style: 'thin', color: { rgb: 'DDDDDD' } },
+                        bottom: { style: 'thin', color: { rgb: 'DDDDDD' } },
+                        left:   { style: 'thin', color: { rgb: 'DDDDDD' } },
+                        right:  { style: 'thin', color: { rgb: 'DDDDDD' } },
+                    },
+                };
+
+                if (isColoredCol && color) {
+                    // Hanya kolom Durasi Tidur & Status Tidur yang diberi warna
+                    ws[cellRef].s = {
+                        ...baseStyle,
+                        fill: { fgColor: { rgb: color.bg } },
+                        font: {
+                            bold: c === statusColIdx,
+                            color: { rgb: color.font },
+                        },
+                    };
+                } else {
+                    // Kolom lain — putih/zebra normal
+                    ws[cellRef].s = {
+                        ...baseStyle,
+                        fill: { fgColor: { rgb: isEven ? 'FFFFFF' : 'F5F5F5' } },
+                        font: { color: { rgb: '333333' } },
+                    };
+                }
+            }
+        });
 
         // Auto column width
-        const colWidths = Object.keys(rows[0] ?? {}).map((key) => ({
-            wch: Math.max(key.length, ...rows.map((r) => String(r[key as keyof typeof r] ?? '').length)) + 2,
+        ws['!cols'] = headers.map((h) => ({
+            wch: Math.max(
+                h.length,
+                ...rows.map((r) => String(r[h as keyof typeof r] ?? '').length),
+            ) + 2,
         }));
-        ws['!cols'] = colWidths;
+
+        // Freeze header row
+        ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Absensi');
@@ -236,7 +321,7 @@ export default function AbsensiDashboard({
         if (filters.terlambat === '0') parts.push('TepakWaktu');
         const filename = parts.join('_') + '.xlsx';
 
-        XLSX.writeFile(wb, filename);
+        XLSX.writeFile(wb, filename, { bookType: 'xlsx', cellStyles: true });
     };
 
     const hasActiveFilters = Object.values(filters).some(Boolean);
