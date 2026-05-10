@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     Building2,
@@ -216,6 +216,8 @@ export default function AbsensiDashboard({
     absensi, stats, namaList, bulanList, tahunList,
     departemenList, shiftList, sectionList, filters, error, totalRows, trashCount,
 }: Props) {
+    const { auth } = usePage().props as any;
+    const isAdmin: boolean = auth?.isAdmin ?? false;
     const [searchNama, setSearchNama] = useState(filters.nama ?? '');
     const [batasJam, setBatasJam] = useState(filters.batas_jam ?? '09:00');
     const [deleteRow, setDeleteRow] = useState<AbsensiRow | null>(null);
@@ -259,8 +261,17 @@ export default function AbsensiDashboard({
     };
 
     const handleExport = () => {
+        // Sort: Pemateri/GL di atas, Audience di bawah
+        const sorted = [...absensi].sort((a, b) => {
+            const isPemateriA = (a as any).peran_kegiatan === 'Pemateri' || (a.jabatan ?? '').toUpperCase().includes('GL');
+            const isPemateriB = (b as any).peran_kegiatan === 'Pemateri' || (b.jabatan ?? '').toUpperCase().includes('GL');
+            if (isPemateriA && !isPemateriB) return -1;
+            if (!isPemateriA && isPemateriB) return 1;
+            return 0;
+        });
+
         // Siapkan data untuk Excel
-        const rows = absensi.map((row, idx) => ({
+        const rows = sorted.map((row, idx) => ({
             'No': idx + 1,
             'ID': row.daily_id ?? '',
             'Tanggal': row.tanggal_formatted ?? row.tanggal ?? '',
@@ -270,9 +281,11 @@ export default function AbsensiDashboard({
             'Nama': row.nama ?? '',
             'Section': row.section ?? '',
             'Jabatan': row.jabatan ?? '',
+            'Peran': (row as any).peran_kegiatan ?? '',
             'NRP': row.nrp ?? '',
             'Departemen': row.departemen ?? '',
             'Kegiatan': row.kegiatan ?? '',
+            'Judul Kegiatan': (row as any).judul_kegiatan ?? '',
             'Mulai Tidur': row.mulai_tidur ?? '',
             'Bangun Tidur': row.bangun_tidur ?? '',
             'Durasi Tidur': row.durasi_tidur_label ?? '',
@@ -321,11 +334,16 @@ export default function AbsensiDashboard({
         // Style data rows
         const statusColIdx = headers.indexOf('Status Tidur');
         const durasiColIdx = headers.indexOf('Durasi Tidur');
+        const peranColIdx  = headers.indexOf('Peran');
 
         rows.forEach((row, rowIdx) => {
-            const status = row['Status Tidur'];
-            const color = STATUS_COLORS[status];
-            const excelRow = rowIdx + 1; // +1 karena header di row 0
+            const status     = row['Status Tidur'];
+            const color      = STATUS_COLORS[status];
+            const peran      = row['Peran'] ?? '';
+            const jabatan    = row['Jabatan'] ?? '';
+            // Pemateri atau GL → highlight baris dengan warna emas muda
+            const isPemateri = peran === 'Pemateri' || jabatan.toUpperCase().includes('GL');
+            const excelRow   = rowIdx + 1;
 
             for (let c = 0; c < colCount; c++) {
                 const cellRef = XLSX.utils.encode_cell({ r: excelRow, c });
@@ -345,7 +363,6 @@ export default function AbsensiDashboard({
                 };
 
                 if (isColoredCol && color) {
-                    // Hanya kolom Durasi Tidur & Status Tidur yang diberi warna
                     ws[cellRef].s = {
                         ...baseStyle,
                         fill: { fgColor: { rgb: color.bg } },
@@ -354,8 +371,17 @@ export default function AbsensiDashboard({
                             color: { rgb: color.font },
                         },
                     };
+                } else if (isPemateri) {
+                    // Baris Pemateri/GL — highlight emas muda
+                    ws[cellRef].s = {
+                        ...baseStyle,
+                        fill: { fgColor: { rgb: 'FFF2CC' } },
+                        font: {
+                            bold: c === peranColIdx,
+                            color: { rgb: '7D4E00' },
+                        },
+                    };
                 } else {
-                    // Kolom lain — putih/zebra normal
                     ws[cellRef].s = {
                         ...baseStyle,
                         fill: { fgColor: { rgb: isEven ? 'FFFFFF' : 'F5F5F5' } },
@@ -470,20 +496,22 @@ export default function AbsensiDashboard({
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.get(absensiRoutes.trash.url())}
-                            className="relative w-fit gap-2"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Recycle Bin
-                            {trashCount > 0 && (
-                                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                                    {trashCount > 99 ? '99+' : trashCount}
-                                </span>
-                            )}
-                        </Button>
+                        {isAdmin && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.get(absensiRoutes.trash.url())}
+                                className="relative w-fit gap-2"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Recycle Bin
+                                {trashCount > 0 && (
+                                    <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                                        {trashCount > 99 ? '99+' : trashCount}
+                                    </span>
+                                )}
+                            </Button>
+                        )}
                         <Button
                             variant="outline"
                             size="sm"
@@ -506,15 +534,17 @@ export default function AbsensiDashboard({
                             <ExternalLink className="h-4 w-4" />
                             Buka Form
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.get('/absensi/form-config')}
-                            className="w-fit gap-2"
-                        >
-                            <Pencil className="h-4 w-4" />
-                            Atur Form
-                        </Button>
+                        {isAdmin && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.get('/absensi/form-config')}
+                                className="w-fit gap-2"
+                            >
+                                <Pencil className="h-4 w-4" />
+                                Atur Form
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -815,7 +845,9 @@ export default function AbsensiDashboard({
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status Tidur</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Jam Isi</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Keterlambatan</th>
-                                            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Aksi</th>
+                                            {isAdmin && (
+                                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Aksi</th>
+                                            )}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -888,6 +920,7 @@ export default function AbsensiDashboard({
                                                     )}
                                                 </td>
                                                                 {/* Aksi */}
+                                                {isAdmin && (
                                                 <td className="whitespace-nowrap px-4 py-3">
                                                     <div className="flex items-center gap-1">
                                                         <Button
@@ -910,6 +943,7 @@ export default function AbsensiDashboard({
                                                         </Button>
                                                     </div>
                                                 </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>

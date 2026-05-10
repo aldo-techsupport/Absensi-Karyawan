@@ -26,6 +26,7 @@ type FormFields = {
     departemen_other: string;
     kegiatan: string;
     kegiatan_other: string;
+    peran_kegiatan: string;   // 'Pemateri' | 'Audience' | ''
     judul_kegiatan: string;
     nama: string;
     section: string;
@@ -242,6 +243,7 @@ export default function AbsensiForm({
         departemen_other: '',
         kegiatan: '',
         kegiatan_other: '',
+        peran_kegiatan: '',
         judul_kegiatan: '',
         nama: '',
         section: '',
@@ -254,7 +256,18 @@ export default function AbsensiForm({
         bangun_tidur: '',
     });
 
+    // Hanya SAFETY TALK yang membutuhkan pilihan Pemateri/Audience
+    const KEGIATAN_DENGAN_PERAN = ['SAFETY TALK'];
+    const kegiatanAktif = data.kegiatan === 'Other' ? data.kegiatan_other : data.kegiatan;
+    const butuhPeran = KEGIATAN_DENGAN_PERAN.includes(kegiatanAktif);
+    const isPemateri = butuhPeran && data.peran_kegiatan === 'Pemateri';
+    const isAudience = butuhPeran && data.peran_kegiatan === 'Audience';
+    // GL atau Pemateri → wajib isi judul & jabatan dapat bintang
+    // Pengecualian: GL + Audience = absen biasa, tidak perlu judul
     const isGL = data.jabatan.toUpperCase() === 'GL';
+    const wajibJudul = isPemateri || (isGL && !isAudience && !butuhPeran);
+    // Tampilkan bintang di jabatan hanya jika Pemateri (bukan GL Audience)
+    const showStar = isPemateri;
 
     const [durasi, setDurasi] = useState<ReturnType<typeof hitungDurasi>>(null);
 
@@ -264,7 +277,6 @@ export default function AbsensiForm({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // Resolve "Other" values before posting
         const payload = {
             ...data,
             perusahaan: data.perusahaan === 'Other' ? data.perusahaan_other : data.perusahaan,
@@ -272,6 +284,8 @@ export default function AbsensiForm({
             kegiatan:   data.kegiatan   === 'Other' ? data.kegiatan_other   : data.kegiatan,
             section:    data.section    === 'Other' ? data.section_other    : data.section,
             lokasi:     data.lokasi     === 'Other' ? data.lokasi_other     : data.lokasi,
+            // Tambahkan peran ke judul jika Pemateri
+            judul_kegiatan: data.judul_kegiatan,
         };
         post('/absensi/form', { data: payload });
     };
@@ -384,29 +398,86 @@ export default function AbsensiForm({
                                 required
                                 options={kegiatanOpts}
                                 value={data.kegiatan}
-                                onChange={(v) => setData('kegiatan', v)}
+                                onChange={(v) => {
+                                    setData('kegiatan', v);
+                                    // Reset peran & judul saat kegiatan berubah
+                                    setData('peran_kegiatan', '');
+                                    setData('judul_kegiatan', '');
+                                }}
                                 otherValue={data.kegiatan_other}
                                 onOtherChange={(v) => setData('kegiatan_other', v)}
                                 error={errors.kegiatan}
                             />
 
-                            {/* 6b. Judul Kegiatan — hanya muncul jika jabatan GL */}
-                            {isGL && (
+                            {/* 6b. Peran — muncul jika kegiatan P5M/SAFETY TALK/SAFETY ALERT */}
+                            {butuhPeran && (
+                                <div className="space-y-2 rounded-xl border-2 border-blue-200 bg-blue-50/50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+                                    <Label className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                                        Peran dalam {kegiatanAktif}
+                                        <span className="ml-1 text-red-500">*</span>
+                                    </Label>
+                                    <div className="flex gap-3">
+                                        {/* Pemateri */}
+                                        <label className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-semibold transition-all ${
+                                            data.peran_kegiatan === 'Pemateri'
+                                                ? 'border-orange-500 bg-orange-500 text-white shadow-md'
+                                                : 'border-muted bg-muted/30 text-muted-foreground hover:border-orange-300'
+                                        }`}>
+                                            <input
+                                                type="radio"
+                                                name="peran_kegiatan"
+                                                value="Pemateri"
+                                                checked={data.peran_kegiatan === 'Pemateri'}
+                                                onChange={() => setData('peran_kegiatan', 'Pemateri')}
+                                                className="sr-only"
+                                            />
+                                            ⭐ Pemateri
+                                        </label>
+                                        {/* Audience */}
+                                        <label className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-semibold transition-all ${
+                                            data.peran_kegiatan === 'Audience'
+                                                ? 'border-blue-500 bg-blue-500 text-white shadow-md'
+                                                : 'border-muted bg-muted/30 text-muted-foreground hover:border-blue-300'
+                                        }`}>
+                                            <input
+                                                type="radio"
+                                                name="peran_kegiatan"
+                                                value="Audience"
+                                                checked={data.peran_kegiatan === 'Audience'}
+                                                onChange={() => {
+                                                    setData('peran_kegiatan', 'Audience');
+                                                    setData('judul_kegiatan', ''); // reset judul
+                                                }}
+                                                className="sr-only"
+                                            />
+                                            👥 Audience
+                                        </label>
+                                    </div>
+                                    {isPemateri && (
+                                        <p className="text-xs text-orange-700 dark:text-orange-400">
+                                            Sebagai Pemateri, jabatan Anda akan ditandai ⭐ dan wajib mengisi judul materi.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 6c. Judul Kegiatan — muncul jika GL atau Pemateri */}
+                            {wajibJudul && (
                                 <div className="space-y-1.5 rounded-xl border-2 border-orange-300 bg-orange-50/50 p-4 dark:border-orange-700 dark:bg-orange-950/20">
                                     <div className="flex items-center gap-2">
                                         <span className="text-base">⭐</span>
                                         <Label className="text-sm font-semibold text-orange-800 dark:text-orange-300">
-                                            Judul P5M / Safety Alert / Safety Talk
+                                            Judul {kegiatanAktif || 'Kegiatan'}
                                             <span className="ml-1 text-red-500">*</span>
                                         </Label>
                                     </div>
                                     <p className="text-xs text-orange-700 dark:text-orange-400">
-                                        Wajib diisi untuk jabatan GL — tulis judul materi yang disampaikan
+                                        Wajib diisi untuk Pemateri — tulis judul materi yang disampaikan
                                     </p>
                                     <textarea
                                         value={data.judul_kegiatan}
                                         onChange={(e) => setData('judul_kegiatan', e.target.value)}
-                                        placeholder="Contoh: Bahaya Kelelahan saat Berkendara, Prosedur Penggunaan APD..."
+                                        placeholder={`Contoh: Bahaya Kelelahan saat Berkendara, Prosedur Penggunaan APD...`}
                                         rows={3}
                                         className={`w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400 dark:bg-gray-900 ${
                                             errors.judul_kegiatan ? 'border-red-400' : 'border-orange-200 dark:border-orange-800'
@@ -455,12 +526,22 @@ export default function AbsensiForm({
                                 error={errors.lokasi}
                             />
 
-                            {/* 9. Jabatan — input teks + quick-pick */}
-                            <JabatanField
-                                value={data.jabatan}
-                                onChange={(v) => setData('jabatan', v)}
-                                error={errors.jabatan}
-                            />
+                            {/* 9. Jabatan — dropdown + bintang jika Pemateri/GL */}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold text-foreground">
+                                    Jabatan
+                                    {showStar && (
+                                        <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                                            ⭐ Pemateri
+                                        </span>
+                                    )}
+                                </Label>
+                                <JabatanField
+                                    value={data.jabatan}
+                                    onChange={(v) => setData('jabatan', v)}
+                                    error={errors.jabatan}
+                                />
+                            </div>
 
                             {/* Field tambahan dari admin (misal: Lokasi) */}
                             {extraFields.map(([key, cfg]) => (

@@ -19,6 +19,7 @@ class Absensi extends Model
         'perusahaan',
         'departemen',
         'kegiatan',
+        'peran_kegiatan',
         'judul_kegiatan',
         'nama',
         'nrp',

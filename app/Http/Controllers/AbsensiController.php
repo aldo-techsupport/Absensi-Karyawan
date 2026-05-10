@@ -262,6 +262,7 @@ class AbsensiController extends Controller
             'perusahaan'         => $record['perusahaan'] ?? '',
             'departemen'         => $record['departemen'] ?? '',
             'kegiatan'           => $record['kegiatan'] ?? '',
+            'peran_kegiatan'     => $record['peran_kegiatan'] ?? '',
             'judul_kegiatan'     => $record['judul_kegiatan'] ?? '',
             'nama'               => $record['nama'] ?? '',
             'nrp'                => $record['nrp'] ?? '',

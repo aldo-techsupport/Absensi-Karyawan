@@ -35,6 +35,7 @@ class AbsensiFormController extends Controller
             'shift'           => 'required|string|max:10',
             'waktu_mulai'     => 'required|string|max:10',
             'kegiatan'        => 'required|string|max:255',
+            'peran_kegiatan'  => 'nullable|string|max:50',
             'judul_kegiatan'  => 'nullable|string|max:500',
             'mulai_tidur'     => 'required|string|max:10',
             'bangun_tidur'    => 'required|string|max:10',
@@ -50,9 +51,27 @@ class AbsensiFormController extends Controller
             'bangun_tidur.required' => 'Jam bangun tidur wajib diisi.',
         ]);
 
-        // Jika jabatan GL, judul_kegiatan wajib diisi
-        if (strtoupper(trim($request->input('jabatan', ''))) === 'GL' && empty($validated['judul_kegiatan'])) {
-            return back()->withErrors(['judul_kegiatan' => 'Judul kegiatan wajib diisi untuk jabatan GL.'])->withInput();
+        // Hanya SAFETY TALK yang butuh peran
+        $kegiatanDenganPeran = ['SAFETY TALK'];
+        $jabatan = strtoupper(trim($request->input('jabatan', '')));
+        $peran   = $request->input('peran_kegiatan', '');
+        $isGL    = $jabatan === 'GL';
+        $isPemateri = in_array($validated['kegiatan'], $kegiatanDenganPeran) && $peran === 'Pemateri';
+
+        // Validasi peran jika kegiatan butuh peran
+        if (in_array($validated['kegiatan'], $kegiatanDenganPeran) && empty($peran)) {
+            return back()->withErrors(['peran_kegiatan' => 'Pilih peran Anda (Pemateri atau Audience).'])->withInput();
+        }
+
+        // Validasi judul jika GL atau Pemateri
+        // Pengecualian: GL + Audience = absen biasa, tidak perlu judul
+        if ($isPemateri && empty($validated['judul_kegiatan'])) {
+            return back()->withErrors(['judul_kegiatan' => 'Judul kegiatan wajib diisi untuk Pemateri.'])->withInput();
+        }
+
+        // Tambahkan ⭐ ke jabatan jika Pemateri
+        if ($isPemateri && ! empty($validated['jabatan'])) {
+            $validated['jabatan'] = '⭐ ' . $validated['jabatan'];
         }
 
         try {
