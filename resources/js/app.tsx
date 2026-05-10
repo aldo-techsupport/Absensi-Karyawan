@@ -18,6 +18,10 @@ createInertiaApp({
                 return AuthLayout;
             case name.startsWith('settings/'):
                 return [AppLayout, SettingsLayout];
+            // Form publik — tanpa layout (no sidebar/header)
+            case name === 'absensi/form':
+            case name === 'absensi/form-success':
+                return null;
             default:
                 return AppLayout;
         }

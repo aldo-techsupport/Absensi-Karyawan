@@ -5,21 +5,33 @@ import {
     Calendar,
     Clock,
     Download,
-    RefreshCw,
+    ExternalLink,
+    Pencil,
     Search,
     ShieldAlert,
     ShieldCheck,
     ShieldX,
+    Trash2,
     Users,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import * as absensiRoutes from '@/routes/absensi';
 
 const BULAN_NAMES: Record<string, string> = {
     '01': 'Januari', '02': 'Februari', '03': 'Maret', '04': 'April',
@@ -31,6 +43,7 @@ type StatusTidur = 'FIT TO WORK' | 'COACHING ATASAN' | 'FATIGUE RISK' | 'UNKNOWN
 
 interface AbsensiRow {
     daily_id?: string;
+    db_id?: number | null;
     timestamp?: string;
     hari?: string;
     tanggal?: string;
@@ -47,6 +60,8 @@ interface AbsensiRow {
     section?: string;
     mulai_tidur?: string;
     bangun_tidur?: string;
+    lokasi?: string;
+    judul_kegiatan?: string;
     durasi_tidur_jam?: number | null;
     durasi_tidur_menit?: number | null;
     durasi_tidur_label?: string;
@@ -97,6 +112,7 @@ interface Props {
     filters: Filters;
     error?: string | null;
     totalRows: number;
+    trashCount: number;
 }
 
 // ─── Status Tidur Badge ───────────────────────────────────────────────────────
@@ -147,15 +163,63 @@ function ShiftBadge({ shift }: { shift: string }) {
     );
 }
 
+// ─── Delete Confirm Modal ─────────────────────────────────────────────────────
+
+function DeleteConfirmModal({
+    open,
+    onClose,
+    onConfirm,
+    nama,
+    processing,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onConfirm: (reason: string) => void;
+    nama: string;
+    processing: boolean;
+}) {
+    const [reason, setReason] = useState('');
+    return (
+        <Dialog open={open} onOpenChange={(v) => { if (!v) { setReason(''); onClose(); } }}>
+            <DialogContent className="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>Hapus Data Absensi</DialogTitle>
+                    <DialogDescription>
+                        Data <strong>{nama}</strong> akan dipindahkan ke recycle bin dan bisa dikembalikan kapan saja.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-1.5">
+                    <Label htmlFor="reason">Alasan penghapusan <span className="text-muted-foreground">(opsional)</span></Label>
+                    <Input
+                        id="reason"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        placeholder="Contoh: data duplikat, salah input..."
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => { setReason(''); onClose(); }} disabled={processing}>
+                        Batal
+                    </Button>
+                    <Button variant="destructive" onClick={() => onConfirm(reason)} disabled={processing}>
+                        {processing ? 'Memproses...' : 'Pindahkan ke Recycle Bin'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AbsensiDashboard({
     absensi, stats, namaList, bulanList, tahunList,
-    departemenList, shiftList, sectionList, filters, error, totalRows,
+    departemenList, shiftList, sectionList, filters, error, totalRows, trashCount,
 }: Props) {
     const [searchNama, setSearchNama] = useState(filters.nama ?? '');
     const [batasJam, setBatasJam] = useState(filters.batas_jam ?? '09:00');
-    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [deleteRow, setDeleteRow] = useState<AbsensiRow | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const applyFilter = (updates: Partial<Filters>) => {
         const merged = { ...filters, ...updates };
@@ -179,14 +243,19 @@ export default function AbsensiDashboard({
         router.get('/absensi', params, { preserveState: true, replace: true });
     };
 
-    const handleRefresh = () => {
-        setIsRefreshing(true);
-        router.reload({ onFinish: () => setIsRefreshing(false) });
-    };
-
     const handleClearFilters = () => {
         setSearchNama('');
         router.get('/absensi', {}, { preserveState: false, replace: true });
+    };
+
+    const handleDelete = (reason: string) => {
+        if (!deleteRow?.db_id) return;
+        setIsDeleting(true);
+        router.delete(absensiRoutes.destroy.url(deleteRow.db_id), {
+            data: { reason },
+            onSuccess: () => { setDeleteRow(null); },
+            onFinish: () => setIsDeleting(false),
+        });
     };
 
     const handleExport = () => {
@@ -397,10 +466,24 @@ export default function AbsensiDashboard({
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight">Dashboard Absensi</h1>
                         <p className="text-sm text-muted-foreground">
-                            Sumber: Google Sheets · {totalRows} total entri
+                            {totalRows} total entri tersimpan
                         </p>
                     </div>
                     <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.get(absensiRoutes.trash.url())}
+                            className="relative w-fit gap-2"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Recycle Bin
+                            {trashCount > 0 && (
+                                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                                    {trashCount > 99 ? '99+' : trashCount}
+                                </span>
+                            )}
+                        </Button>
                         <Button
                             variant="outline"
                             size="sm"
@@ -417,12 +500,20 @@ export default function AbsensiDashboard({
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleRefresh}
-                            disabled={isRefreshing}
+                            onClick={() => window.open('/absensi/form', '_blank')}
+                            className="w-fit gap-2 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                        >
+                            <ExternalLink className="h-4 w-4" />
+                            Buka Form
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.get('/absensi/form-config')}
                             className="w-fit gap-2"
                         >
-                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            Refresh Data
+                            <Pencil className="h-4 w-4" />
+                            Atur Form
                         </Button>
                     </div>
                 </div>
@@ -716,12 +807,15 @@ export default function AbsensiDashboard({
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">NRP</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Departemen</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Kegiatan</th>
+                                            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Judul Kegiatan</th>
+                                            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lokasi</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Mulai Tidur</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bangun Tidur</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Durasi Tidur</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status Tidur</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Jam Isi</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Keterlambatan</th>
+                                            <th className="px-4 py-3 text-left font-medium text-muted-foreground">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
@@ -755,6 +849,12 @@ export default function AbsensiDashboard({
                                                 <td className="px-4 py-3 text-muted-foreground">{row.nrp || '-'}</td>
                                                 <td className="px-4 py-3 text-muted-foreground">{row.departemen || '-'}</td>
                                                 <td className="max-w-40 truncate px-4 py-3 text-muted-foreground">{row.kegiatan || '-'}</td>
+                                                <td className="max-w-48 px-4 py-3 text-muted-foreground">
+                                                    {row.judul_kegiatan
+                                                        ? <span className="text-xs">{row.judul_kegiatan}</span>
+                                                        : <span className="text-muted-foreground">-</span>}
+                                                </td>
+                                                <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{row.lokasi || '-'}</td>
                                                 <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{row.mulai_tidur || '-'}</td>
                                                 <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{row.bangun_tidur || '-'}</td>
                                                 <td className="whitespace-nowrap px-4 py-3 font-medium">
@@ -787,6 +887,29 @@ export default function AbsensiDashboard({
                                                         <span className="text-muted-foreground">-</span>
                                                     )}
                                                 </td>
+                                                                {/* Aksi */}
+                                                <td className="whitespace-nowrap px-4 py-3">
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                                            onClick={() => router.get(`/absensi/${row.db_id}/edit`)}
+                                                            title="Edit"
+                                                        >
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                            onClick={() => setDeleteRow(row)}
+                                                            title="Hapus"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -797,6 +920,15 @@ export default function AbsensiDashboard({
                 </Card>
 
             </div>
+
+            {/* ── Modals ── */}
+            <DeleteConfirmModal
+                open={deleteRow !== null}
+                onClose={() => setDeleteRow(null)}
+                onConfirm={handleDelete}
+                nama={deleteRow?.nama ?? ''}
+                processing={isDeleting}
+            />
         </>
     );
 }
