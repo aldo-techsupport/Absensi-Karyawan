@@ -240,7 +240,7 @@ export default function AbsensiForm({
     const { data, setData, post, processing, errors } = useForm<FormFields>({
         tanggal: defaultTanggal,
         shift: '',
-        waktu_mulai: '',
+        waktu_mulai: new Date().toTimeString().slice(0, 5), // otomatis jam sekarang
         perusahaan: 'PT KPP MINING',
         perusahaan_other: '',
         departemen: 'PLANT',
@@ -260,8 +260,8 @@ export default function AbsensiForm({
         bangun_tidur: '',
     });
 
-    // Hanya SAFETY TALK yang membutuhkan pilihan Pemateri/Audience
-    const KEGIATAN_DENGAN_PERAN = ['SAFETY TALK'];
+    // P5M, SAFETY TALK, SAFETY ALERT semua butuh pilihan Pemateri/Audience
+    const KEGIATAN_DENGAN_PERAN = ['P5M', 'SAFETY TALK', 'SAFETY ALERT'];
     const kegiatanAktif = data.kegiatan === 'Other' ? data.kegiatan_other : data.kegiatan;
     const butuhPeran = KEGIATAN_DENGAN_PERAN.includes(kegiatanAktif);
     const isPemateri = butuhPeran && data.peran_kegiatan === 'Pemateri';
@@ -515,9 +515,9 @@ export default function AbsensiForm({
                             <Field label="Nama" required error={errors.nama}>
                                 <Input
                                     value={data.nama}
-                                    onChange={(e) => setData('nama', e.target.value)}
-                                    placeholder="Nama lengkap"
-                                    className={errors.nama ? 'border-red-400' : ''}
+                                    onChange={(e) => setData('nama', e.target.value.toUpperCase())}
+                                    placeholder="NAMA LENGKAP"
+                                    className={`uppercase ${errors.nama ? 'border-red-400' : ''}`}
                                 />
                             </Field>
 
@@ -536,6 +536,7 @@ export default function AbsensiForm({
                             {/* 8b. Lokasi */}
                             <RadioGroup
                                 label={formConfigs['lokasi']?.label ?? 'Lokasi'}
+                                required
                                 options={lokasiOpts}
                                 value={data.lokasi}
                                 onChange={(v) => setData('lokasi', v)}
@@ -547,7 +548,7 @@ export default function AbsensiForm({
                             {/* 9. Jabatan — dropdown + bintang jika Pemateri/GL */}
                             <div className="space-y-2">
                                 <Label className="text-sm font-semibold text-foreground">
-                                    Jabatan
+                                    Jabatan <span className="text-red-500">*</span>
                                     {showStar && (
                                         <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
                                             ⭐ Pemateri
@@ -579,9 +580,9 @@ export default function AbsensiForm({
                             <Field label="NRP" required error={errors.nrp}>
                                 <Input
                                     value={data.nrp}
-                                    onChange={(e) => setData('nrp', e.target.value)}
-                                    placeholder="Nomor registrasi pegawai"
-                                    className={errors.nrp ? 'border-red-400' : ''}
+                                    onChange={(e) => setData('nrp', e.target.value.toUpperCase())}
+                                    placeholder="NOMOR REGISTRASI PEGAWAI"
+                                    className={`uppercase ${errors.nrp ? 'border-red-400' : ''}`}
                                 />
                             </Field>
 

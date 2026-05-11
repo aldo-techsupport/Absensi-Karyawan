@@ -37,9 +37,9 @@ class AbsensiFormController extends Controller
         $validated = $request->validate([
             'nama'            => 'required|string|max:255',
             'nrp'             => 'required|string|max:50',
-            'jabatan'         => 'nullable|string|max:255',
+            'jabatan'         => 'required|string|max:255',
             'section'         => 'required|string|max:255',
-            'lokasi'          => 'nullable|string|max:255',
+            'lokasi'          => 'required|string|max:255',
             'departemen'      => 'nullable|string|max:255',
             'perusahaan'      => 'nullable|string|max:255',
             'tanggal'         => 'required|date',
@@ -54,7 +54,9 @@ class AbsensiFormController extends Controller
         ], [
             'nama.required'         => 'Nama wajib diisi.',
             'nrp.required'          => 'NRP wajib diisi.',
+            'jabatan.required'      => 'Jabatan wajib dipilih.',
             'section.required'      => 'Section wajib dipilih.',
+            'lokasi.required'       => 'Lokasi wajib dipilih.',
             'tanggal.required'      => 'Tanggal wajib diisi.',
             'shift.required'        => 'Shift kerja wajib dipilih.',
             'waktu_mulai.required'  => 'Waktu mulai wajib diisi.',
@@ -63,8 +65,12 @@ class AbsensiFormController extends Controller
             'bangun_tidur.required' => 'Jam bangun tidur wajib diisi.',
         ]);
 
-        // Hanya SAFETY TALK yang butuh peran
-        $kegiatanDenganPeran = ['SAFETY TALK'];
+        // Auto uppercase Nama dan NRP
+        $validated['nama'] = strtoupper($validated['nama']);
+        $validated['nrp']  = strtoupper($validated['nrp']);
+
+        // P5M, SAFETY TALK, SAFETY ALERT semua butuh peran
+        $kegiatanDenganPeran = ['P5M', 'SAFETY TALK', 'SAFETY ALERT'];
         $jabatan = strtoupper(trim($request->input('jabatan', '')));
         $peran   = $request->input('peran_kegiatan', '');
         $isGL    = $jabatan === 'GL';
