@@ -395,6 +395,12 @@ export default function AbsensiDashboard({
     const [batasJam, setBatasJam] = useState(filters.batas_jam ?? '09:00');
     const [deleteRow, setDeleteRow] = useState<AbsensiRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [page, setPage] = useState(1);
+    const PAGE_SIZE = 25;
+
+    // Reset ke halaman 1 saat filter berubah
+    const totalPages = Math.ceil(absensi.length / PAGE_SIZE);
+    const pagedAbsensi = absensi.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     const [showSchedule, setShowSchedule] = useState(false);
     const [isTogglingForm, setIsTogglingForm] = useState(false);
 
@@ -409,6 +415,7 @@ export default function AbsensiDashboard({
     };
 
     const applyFilter = (updates: Partial<Filters>) => {
+        setPage(1); // reset ke halaman 1
         const merged = { ...filters, ...updates };
         const params: Record<string, string> = {};
 
@@ -1063,7 +1070,9 @@ export default function AbsensiDashboard({
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-sm font-medium">Data Absensi Karyawan</CardTitle>
-                            <span className="text-xs text-muted-foreground">{absensi.length} entri ditampilkan</span>
+                            <span className="text-xs text-muted-foreground">
+                                {absensi.length} entri · halaman {page} dari {totalPages || 1}
+                            </span>
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
@@ -1078,10 +1087,13 @@ export default function AbsensiDashboard({
                                 )}
                             </div>
                         ) : (
+                            <>
+                            {/* Scroll area dengan tinggi tetap */}
                             <div className="overflow-x-auto">
+                                <div className="max-h-[600px] overflow-y-auto">
                                 <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b bg-muted/50">
+                                    <thead className="sticky top-0 z-10">
+                                        <tr className="border-b bg-muted/90 backdrop-blur-sm">
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tanggal</th>
                                             <th className="px-4 py-3 text-left font-medium text-muted-foreground">Hari</th>
@@ -1107,7 +1119,7 @@ export default function AbsensiDashboard({
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                        {absensi.map((row, idx) => (
+                                        {pagedAbsensi.map((row, idx) => (
                                             <tr
                                                 key={idx}
                                                 className={`transition-colors hover:bg-muted/30 ${
@@ -1204,7 +1216,79 @@ export default function AbsensiDashboard({
                                         ))}
                                     </tbody>
                                 </table>
+                                </div>
                             </div>
+
+                            {/* Pagination footer */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between border-t px-4 py-3">
+                                    <p className="text-xs text-muted-foreground">
+                                        Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, absensi.length)} dari {absensi.length} entri
+                                    </p>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-xs"
+                                            onClick={() => setPage(1)}
+                                            disabled={page === 1}
+                                        >
+                                            «
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-xs"
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                        >
+                                            ‹ Prev
+                                        </Button>
+                                        {/* Nomor halaman */}
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                                            .reduce<(number | '...')[]>((acc, p, i, arr) => {
+                                                if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('...');
+                                                acc.push(p);
+                                                return acc;
+                                            }, [])
+                                            .map((p, i) =>
+                                                p === '...' ? (
+                                                    <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                                                ) : (
+                                                    <Button
+                                                        key={p}
+                                                        variant={page === p ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        className="h-7 w-7 p-0 text-xs"
+                                                        onClick={() => setPage(p as number)}
+                                                    >
+                                                        {p}
+                                                    </Button>
+                                                )
+                                            )}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-xs"
+                                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={page === totalPages}
+                                        >
+                                            Next ›
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-2 text-xs"
+                                            onClick={() => setPage(totalPages)}
+                                            disabled={page === totalPages}
+                                        >
+                                            »
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                            </>
                         )}
                     </CardContent>
                 </Card>

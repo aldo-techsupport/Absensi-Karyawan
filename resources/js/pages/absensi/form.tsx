@@ -120,8 +120,9 @@ function RadioGroup({
 // ─── Jabatan Field (dropdown + input bebas jika "Lainnya") ───────────────────
 
 const JABATAN_LIST = [
+    'GL', 'Mekanik',
     'Dept Head', 'Section Head', 'Planner', 'Plant Engineer', 'She Coor',
-    'Instruktur', 'Plant Asessor', 'GL', 'Mekanik', 'Welder', 'Tyreman',
+    'Instruktur', 'Plant Asessor', 'Welder', 'Tyreman',
     'Driver STD', 'FGDP', 'Mekanik Magang', 'Magang PKL', 'Washingman',
     'Lainnya (Isi sendiri...)',
 ];
@@ -260,6 +261,15 @@ export default function AbsensiForm({
         bangun_tidur: '',
     });
 
+    // Update waktu_mulai setiap menit secara real-time (tidak bisa diedit user)
+    useEffect(() => {
+        const tick = () => setData('waktu_mulai', new Date().toTimeString().slice(0, 5));
+        tick(); // set langsung
+        const interval = setInterval(tick, 60000); // update tiap menit
+        return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // P5M, SAFETY TALK, SAFETY ALERT semua butuh pilihan Pemateri/Audience
     const KEGIATAN_DENGAN_PERAN = ['P5M', 'SAFETY TALK', 'SAFETY ALERT'];
     const kegiatanAktif = data.kegiatan === 'Other' ? data.kegiatan_other : data.kegiatan;
@@ -340,17 +350,27 @@ export default function AbsensiForm({
                     <form onSubmit={handleSubmit}>
                         <div className="space-y-5 rounded-2xl border bg-white p-6 shadow-sm dark:bg-gray-900">
 
-                            {/* 1. Tanggal Pelaksanaan */}
-                            <Field label="Tanggal Pelaksanaan" required error={errors.tanggal}>
-                                <Input
-                                    type="date"
-                                    value={data.tanggal}
-                                    onChange={(e) => setData('tanggal', e.target.value)}
-                                    className={errors.tanggal ? 'border-red-400' : ''}
-                                />
-                            </Field>
-
-                            {/* 2. Shift Kerja */}
+                            {/* 1 & 3. Tanggal + Waktu Mulai — satu baris, keduanya otomatis */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <Field label="Tanggal Pelaksanaan" required error={errors.tanggal}>
+                                    <div className="flex items-center gap-2 rounded-lg border border-muted bg-muted/50 px-3 py-2 select-none h-10">
+                                        <span className="text-sm font-mono font-medium">
+                                            {data.tanggal
+                                                ? new Date(data.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                                : '-'}
+                                        </span>
+                                        <span className="ml-auto text-xs text-muted-foreground">otomatis</span>
+                                    </div>
+                                    <input type="hidden" name="tanggal" value={data.tanggal} />
+                                </Field>
+                                <Field label="Waktu Mulai (Jam)" required error={errors.waktu_mulai}>
+                                    <div className="flex items-center gap-2 rounded-lg border border-muted bg-muted/50 px-3 py-2 select-none h-10">
+                                        <span className="text-sm font-mono font-medium">{data.waktu_mulai}</span>
+                                        <span className="ml-auto text-xs text-muted-foreground">otomatis</span>
+                                    </div>
+                                    <input type="hidden" name="waktu_mulai" value={data.waktu_mulai} />
+                                </Field>
+                            </div>
                             <Field label="Shift Kerja" required error={errors.shift}>
                                 <div className="flex gap-3">
                                     {[
@@ -374,16 +394,6 @@ export default function AbsensiForm({
                                         </label>
                                     ))}
                                 </div>
-                            </Field>
-
-                            {/* 3. Waktu Mulai */}
-                            <Field label="Waktu Mulai (Jam)" required error={errors.waktu_mulai}>
-                                <Input
-                                    type="time"
-                                    value={data.waktu_mulai}
-                                    onChange={(e) => setData('waktu_mulai', e.target.value)}
-                                    className={errors.waktu_mulai ? 'border-red-400' : ''}
-                                />
                             </Field>
 
                             <Divider label="Informasi Perusahaan" />

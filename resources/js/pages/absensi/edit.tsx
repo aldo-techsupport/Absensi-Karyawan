@@ -119,7 +119,7 @@ function RadioGroup({ label, required, options, value, onChange, otherValue, onO
     );
 }
 
-const JABATAN_LIST = ['Dept Head', 'Section Head', 'Planner', 'Plant Engineer', 'She Coor', 'Instruktur', 'Plant Asessor', 'GL', 'Mekanik', 'Welder', 'Tyreman', 'Driver STD', 'FGDP', 'Mekanik Magang', 'Magang PKL', 'Washingman', 'Lainnya (Isi sendiri...)'];
+const JABATAN_LIST = ['GL', 'Mekanik', 'Dept Head', 'Section Head', 'Planner', 'Plant Engineer', 'She Coor', 'Instruktur', 'Plant Asessor', 'Welder', 'Tyreman', 'Driver STD', 'FGDP', 'Mekanik Magang', 'Magang PKL', 'Washingman', 'Lainnya (Isi sendiri...)'];
 
 function JabatanField({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
     const isOther = value !== '' && !JABATAN_LIST.slice(0, -1).includes(value);
