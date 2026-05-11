@@ -94,6 +94,8 @@ interface Stats {
 interface Filters {
     bulan?: string | null;
     tahun?: string | null;
+    tanggal_dari?: string | null;
+    tanggal_sampai?: string | null;
     nama?: string | null;
     departemen?: string | null;
     shift?: string | null;
@@ -424,6 +426,8 @@ export default function AbsensiDashboard({
 
         if (merged.bulan) params.bulan = merged.bulan;
         if (merged.tahun) params.tahun = merged.tahun;
+        if (merged.tanggal_dari) params.tanggal_dari = merged.tanggal_dari;
+        if (merged.tanggal_sampai) params.tanggal_sampai = merged.tanggal_sampai;
         if (merged.nama) params.nama = merged.nama;
         if (merged.departemen) params.departemen = merged.departemen;
         if (merged.shift) params.shift = merged.shift;
@@ -601,6 +605,8 @@ export default function AbsensiDashboard({
         const parts = ['Absensi'];
         if (filters.bulan) parts.push(BULAN_NAMES[filters.bulan] ?? filters.bulan);
         if (filters.tahun) parts.push(filters.tahun);
+        if (filters.tanggal_dari) parts.push(filters.tanggal_dari.replace(/-/g, ''));
+        if (filters.tanggal_sampai) parts.push('sd' + filters.tanggal_sampai.replace(/-/g, ''));
         if (filters.departemen) parts.push(filters.departemen);
         if (filters.section) parts.push(filters.section);
         if (filters.shift) parts.push(`Shift${filters.shift}`);
@@ -935,21 +941,36 @@ export default function AbsensiDashboard({
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap gap-3">
-                            <Select value={filters.bulan ?? 'all'} onValueChange={(v) => applyFilter({ bulan: v === 'all' ? null : v })}>
-                                <SelectTrigger className="w-40"><SelectValue placeholder="Semua Bulan" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Bulan</SelectItem>
-                                    {bulanList.map((b) => <SelectItem key={b} value={b}>{BULAN_NAMES[b] ?? b}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={filters.tahun ?? 'all'} onValueChange={(v) => applyFilter({ tahun: v === 'all' ? null : v })}>
-                                <SelectTrigger className="w-32"><SelectValue placeholder="Semua Tahun" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Tahun</SelectItem>
-                                    {tahunList.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            {/* Filter Tanggal Range */}
+                            <div className="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-3 py-1.5">
+                                <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <input
+                                    type="date"
+                                    value={filters.tanggal_dari ?? ''}
+                                    onChange={(e) => applyFilter({ tanggal_dari: e.target.value || null, bulan: null, tahun: null })}
+                                    className="w-36 bg-transparent text-sm focus:outline-none"
+                                    title="Dari tanggal"
+                                />
+                                <span className="text-xs text-muted-foreground">–</span>
+                                <input
+                                    type="date"
+                                    value={filters.tanggal_sampai ?? ''}
+                                    min={filters.tanggal_dari ?? undefined}
+                                    onChange={(e) => applyFilter({ tanggal_sampai: e.target.value || null, bulan: null, tahun: null })}
+                                    className="w-36 bg-transparent text-sm focus:outline-none"
+                                    title="Sampai tanggal"
+                                />
+                                {(filters.tanggal_dari || filters.tanggal_sampai) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => applyFilter({ tanggal_dari: null, tanggal_sampai: null })}
+                                        className="ml-1 text-muted-foreground hover:text-foreground"
+                                        title="Hapus filter tanggal"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
 
                             <Select value={filters.departemen ?? 'all'} onValueChange={(v) => applyFilter({ departemen: v === 'all' ? null : v })}>
                                 <SelectTrigger className="w-44"><SelectValue placeholder="Semua Departemen" /></SelectTrigger>
@@ -1050,6 +1071,18 @@ export default function AbsensiDashboard({
                             <div className="mt-3 flex flex-wrap gap-2">
                                 {filters.bulan && <Badge variant="secondary">Bulan: {BULAN_NAMES[filters.bulan] ?? filters.bulan}</Badge>}
                                 {filters.tahun && <Badge variant="secondary">Tahun: {filters.tahun}</Badge>}
+                                {(filters.tanggal_dari || filters.tanggal_sampai) && (
+                                    <Badge variant="secondary" className="gap-1">
+                                        <Calendar className="h-3 w-3" />
+                                        {filters.tanggal_dari
+                                            ? new Date(filters.tanggal_dari).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+                                            : '...'}
+                                        {' – '}
+                                        {filters.tanggal_sampai
+                                            ? new Date(filters.tanggal_sampai).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+                                            : '...'}
+                                    </Badge>
+                                )}
                                 {filters.departemen && <Badge variant="secondary">Dept: {filters.departemen}</Badge>}
                                 {filters.section && <Badge variant="secondary">Section: {filters.section}</Badge>}
                                 {filters.shift && <Badge variant="secondary">Shift {filters.shift}</Badge>}
