@@ -20,6 +20,8 @@ class AbsensiController extends Controller
     {
         $filterBulan      = $request->query('bulan');
         $filterTahun      = $request->query('tahun');
+        $filterTanggalDari = $request->query('tanggal_dari');
+        $filterTanggalSampai = $request->query('tanggal_sampai');
         $filterNama       = $request->query('nama');
         $filterDepartemen = $request->query('departemen');
         $filterShift      = $request->query('shift');
@@ -36,7 +38,8 @@ class AbsensiController extends Controller
         $filtered = $this->filterData(
             $data, $filterBulan, $filterTahun, $filterNama,
             $filterDepartemen, $filterShift, $filterStatus,
-            $filterSection, $filterTerlambat
+            $filterSection, $filterTerlambat,
+            $filterTanggalDari, $filterTanggalSampai
         );
         $stats = $this->calculateStats($filtered);
 
@@ -61,15 +64,17 @@ class AbsensiController extends Controller
             'shiftList'      => $shiftList,
             'sectionList'    => $sectionList,
             'filters'        => [
-                'bulan'        => $filterBulan,
-                'tahun'        => $filterTahun,
-                'nama'         => $filterNama,
-                'departemen'   => $filterDepartemen,
-                'shift'        => $filterShift,
-                'status_tidur' => $filterStatus,
-                'section'      => $filterSection,
-                'batas_jam'    => $filterBatasJam,
-                'terlambat'    => $filterTerlambat,
+                'bulan'          => $filterBulan,
+                'tahun'          => $filterTahun,
+                'tanggal_dari'   => $filterTanggalDari,
+                'tanggal_sampai' => $filterTanggalSampai,
+                'nama'           => $filterNama,
+                'departemen'     => $filterDepartemen,
+                'shift'          => $filterShift,
+                'status_tidur'   => $filterStatus,
+                'section'        => $filterSection,
+                'batas_jam'      => $filterBatasJam,
+                'terlambat'      => $filterTerlambat,
             ],
             'totalRows'   => $totalRows,
             'trashCount'  => $trashCount,
@@ -362,10 +367,12 @@ class AbsensiController extends Controller
     private function filterData(
         array $data, ?string $bulan, ?string $tahun, ?string $nama,
         ?string $departemen, ?string $shift, ?string $statusTidur,
-        ?string $section, ?string $terlambat
+        ?string $section, ?string $terlambat,
+        ?string $tanggalDari = null, ?string $tanggalSampai = null
     ): array {
         return array_values(array_filter($data, function ($row) use (
-            $bulan, $tahun, $nama, $departemen, $shift, $statusTidur, $section, $terlambat
+            $bulan, $tahun, $nama, $departemen, $shift, $statusTidur, $section, $terlambat,
+            $tanggalDari, $tanggalSampai
         ) {
             if ($bulan       && ($row['bulan'] ?? '') !== $bulan) return false;
             if ($tahun       && ($row['tahun'] ?? '') !== $tahun) return false;
@@ -376,6 +383,20 @@ class AbsensiController extends Controller
             if ($section     && stripos($row['section'] ?? '', $section) === false) return false;
             if ($terlambat === '1' && ! ($row['terlambat'] ?? false)) return false;
             if ($terlambat === '0' && ($row['terlambat'] ?? false)) return false;
+
+            // Filter tanggal range
+            if ($tanggalDari || $tanggalSampai) {
+                $tanggalRow = $row['tanggal'] ?? '';
+                if (! $tanggalRow) return false;
+                try {
+                    $tgl = Carbon::parse($tanggalRow)->startOfDay();
+                    if ($tanggalDari && $tgl->lt(Carbon::parse($tanggalDari)->startOfDay())) return false;
+                    if ($tanggalSampai && $tgl->gt(Carbon::parse($tanggalSampai)->startOfDay())) return false;
+                } catch (\Exception $e) {
+                    return false;
+                }
+            }
+
             return true;
         }));
     }

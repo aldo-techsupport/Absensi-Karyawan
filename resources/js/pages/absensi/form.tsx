@@ -132,8 +132,11 @@ function JabatanField({ value, onChange, error }: {
     onChange: (v: string) => void;
     error?: string;
 }) {
-    const isOther = value !== '' && !JABATAN_LIST.slice(0, -1).includes(value);
-    const selectValue = isOther ? 'Lainnya (Isi sendiri...)' : value;
+    // isOther: true jika value bukan dari daftar baku (termasuk string kosong setelah pilih Lainnya)
+    const [showOther, setShowOther] = useState(
+        value !== '' && !JABATAN_LIST.slice(0, -1).includes(value)
+    );
+    const selectValue = showOther ? 'Lainnya (Isi sendiri...)' : value;
 
     return (
         <div className="space-y-2">
@@ -143,8 +146,10 @@ function JabatanField({ value, onChange, error }: {
                 onChange={(e) => {
                     const v = e.target.value;
                     if (v === 'Lainnya (Isi sendiri...)') {
-                        onChange('');
+                        setShowOther(true);
+                        onChange(''); // kosongkan agar user isi sendiri
                     } else {
+                        setShowOther(false);
                         onChange(v);
                     }
                 }}
@@ -160,9 +165,9 @@ function JabatanField({ value, onChange, error }: {
                 ))}
             </select>
             {/* Input bebas jika pilih Lainnya */}
-            {(selectValue === 'Lainnya (Isi sendiri...)' || isOther) && (
+            {showOther && (
                 <Input
-                    value={isOther ? value : ''}
+                    value={value}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder="Tulis jabatan Anda..."
                     autoFocus
