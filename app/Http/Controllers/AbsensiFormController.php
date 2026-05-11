@@ -39,6 +39,25 @@ class AbsensiFormController extends Controller
             return back()->withErrors(['form' => $setting->closed_message])->withInput();
         }
 
+        // ── Validasi lokasi GPS (server-side) ──────────────────────────────────
+        if ($setting->location_enabled && $setting->location_lat !== null && $setting->location_lng !== null) {
+            $userLat = $request->input('user_lat');
+            $userLng = $request->input('user_lng');
+
+            if ($userLat === null || $userLng === null) {
+                return back()->withErrors(['location' => 'Verifikasi lokasi diperlukan. Izinkan akses GPS di browser Anda.'])->withInput();
+            }
+
+            $dist = $this->haversineDistance(
+                (float) $userLat, (float) $userLng,
+                (float) $setting->location_lat, (float) $setting->location_lng
+            );
+
+            if ($dist > ($setting->location_radius ?? 100)) {
+                return back()->withErrors(['location' => 'Anda berada di luar area absensi (±' . round($dist) . ' m). Harus dalam radius ' . $setting->location_radius . ' m.'])->withInput();
+            }
+        }
+
         $validated = $request->validate([
             'nama'            => 'required|string|max:255',
             'nrp'             => 'required|string|max:50',
@@ -114,5 +133,18 @@ class AbsensiFormController extends Controller
     public function success(): Response
     {
         return Inertia::render('absensi/form-success');
+    }
+
+    /**
+     * Hitung jarak antara dua koordinat GPS (meter) — Haversine formula.
+     */
+    private function haversineDistance(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $R = 6371000; // radius bumi dalam meter
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+        return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }

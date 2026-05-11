@@ -303,6 +303,7 @@ export default function AbsensiForm({
     type GeoStatus = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable' | 'out_of_range';
     const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
     const [geoDistance, setGeoDistance] = useState<number | null>(null);
+    const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
     const watchIdRef = useRef<number | null>(null);
 
     // Haversine formula — returns distance in meters
@@ -333,6 +334,7 @@ export default function AbsensiForm({
                 locationLat!, locationLng!,
             );
             setGeoDistance(Math.round(dist));
+            setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
             setGeoStatus(dist <= locationRadius ? 'granted' : 'out_of_range');
         };
 
@@ -374,6 +376,9 @@ export default function AbsensiForm({
                 section:    data.section    === 'Other' ? data.section_other    : data.section,
                 lokasi:     data.lokasi     === 'Other' ? data.lokasi_other     : data.lokasi,
                 judul_kegiatan: data.judul_kegiatan,
+                // Kirim koordinat user ke backend untuk validasi server-side
+                user_lat: userCoords?.lat ?? null,
+                user_lng: userCoords?.lng ?? null,
             },
         });
     };
@@ -865,6 +870,12 @@ export default function AbsensiForm({
                             </div>
 
                             {/* Submit */}
+                            {errors.location && (
+                                <div className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400">
+                                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                                    {errors.location}
+                                </div>
+                            )}
                             <Button
                                 type="submit"
                                 disabled={processing || locationBlocked}
