@@ -471,17 +471,53 @@ export default function AbsensiForm({
                                     {geoStatus === 'denied' && (
                                         <>
                                             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                                                Anda menolak izin lokasi. Absensi tidak dapat dilakukan tanpa verifikasi lokasi.
+                                                Izin lokasi ditolak. Aktifkan lokasi terlebih dahulu lalu muat ulang halaman.
                                             </p>
-                                            <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30 space-y-2">
-                                                <p className="text-xs font-semibold text-red-800 dark:text-red-300">Cara mengaktifkan lokasi:</p>
-                                                <ol className="text-xs text-red-700 dark:text-red-400 space-y-1 list-decimal list-inside">
-                                                    <li>Klik ikon 🔒 atau ⓘ di address bar browser</li>
+
+                                            {/* Android Chrome */}
+                                            <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 overflow-hidden">
+                                                <div className="flex items-center gap-2 bg-red-100 dark:bg-red-900/40 px-4 py-2">
+                                                    <span className="text-base">🤖</span>
+                                                    <p className="text-xs font-bold text-red-800 dark:text-red-300">Android (Chrome)</p>
+                                                </div>
+                                                <ol className="text-xs text-red-700 dark:text-red-400 space-y-1 list-decimal list-inside px-4 py-3">
+                                                    <li>Tap ikon <strong>🔒</strong> di address bar</li>
+                                                    <li>Tap <strong>Izin situs / Site settings</strong></li>
+                                                    <li>Tap <strong>Lokasi / Location</strong></li>
+                                                    <li>Pilih <strong>Izinkan / Allow</strong></li>
+                                                    <li>Kembali ke halaman ini &amp; muat ulang</li>
+                                                </ol>
+                                            </div>
+
+                                            {/* iOS Safari */}
+                                            <div className="rounded-xl border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30 overflow-hidden">
+                                                <div className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900/40 px-4 py-2">
+                                                    <span className="text-base">🍎</span>
+                                                    <p className="text-xs font-bold text-orange-800 dark:text-orange-300">iPhone / iPad (Safari)</p>
+                                                </div>
+                                                <ol className="text-xs text-orange-700 dark:text-orange-400 space-y-1 list-decimal list-inside px-4 py-3">
+                                                    <li>Buka <strong>Pengaturan</strong> HP</li>
+                                                    <li>Scroll ke <strong>Safari</strong></li>
+                                                    <li>Tap <strong>Lokasi / Location</strong></li>
+                                                    <li>Pilih <strong>Izinkan / Allow</strong></li>
+                                                    <li>Kembali ke browser &amp; muat ulang</li>
+                                                </ol>
+                                            </div>
+
+                                            {/* Desktop */}
+                                            <div className="rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/30 overflow-hidden">
+                                                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700/40 px-4 py-2">
+                                                    <span className="text-base">🖥️</span>
+                                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Desktop (Chrome / Edge)</p>
+                                                </div>
+                                                <ol className="text-xs text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside px-4 py-3">
+                                                    <li>Klik ikon <strong>🔒</strong> atau <strong>ⓘ</strong> di address bar</li>
                                                     <li>Cari <strong>Lokasi / Location</strong></li>
                                                     <li>Ubah ke <strong>Izinkan / Allow</strong></li>
                                                     <li>Muat ulang halaman ini</li>
                                                 </ol>
                                             </div>
+
                                             <Button
                                                 className="w-full"
                                                 onClick={() => window.location.reload()}
