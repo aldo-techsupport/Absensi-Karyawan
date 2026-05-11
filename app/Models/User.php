@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password', 'role'])]
+#[Fillable(['name', 'email', 'password', 'role', 'filter_preferences'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -31,9 +31,21 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'two_factor_confirmed_at' => 'datetime',
+            'email_verified_at'      => 'datetime',
+            'password'               => 'hashed',
+            'two_factor_confirmed_at'=> 'datetime',
+            'filter_preferences'     => 'array',
         ];
+    }
+
+    public function getFilterPreference(string $key, mixed $default = null): mixed
+    {
+        return $this->filter_preferences[$key] ?? $default;
+    }
+
+    public function setFilterPreferences(array $prefs): void
+    {
+        $this->filter_preferences = array_merge($this->filter_preferences ?? [], $prefs);
+        $this->save();
     }
 }

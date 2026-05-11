@@ -422,6 +422,25 @@ export default function AbsensiDashboard({
         });
     };
 
+    // Simpan filter preferences ke akun user (fire-and-forget, tidak blokir UI)
+    const saveFilterPreferences = (prefs: Partial<Filters>) => {
+        const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
+        const body: Record<string, string> = {};
+        // Hanya kirim nilai yang ada (null/undefined → skip)
+        Object.entries(prefs).forEach(([k, v]) => {
+            if (v != null && v !== '') body[k] = String(v);
+        });
+        fetch('/user/filter-preferences', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify(body),
+        }).catch(() => {/* silent fail */});
+    };
+
     const applyFilter = (updates: Partial<Filters>) => {
         setPage(1); // reset ke halaman 1
         const merged = { ...filters, ...updates };
@@ -444,11 +463,20 @@ export default function AbsensiDashboard({
             params.terlambat = merged.terlambat;
         }
 
+        // Simpan ke preferensi akun user
+        saveFilterPreferences(merged);
+
         router.get('/absensi', params, { preserveState: true, replace: true });
     };
 
     const handleClearFilters = () => {
         setSearchNama('');
+        // Hapus semua preferensi filter yang tersimpan
+        saveFilterPreferences({
+            bulan: null, tahun: null, tanggal_dari: null, tanggal_sampai: null,
+            nama: null, departemen: null, shift: null, status_tidur: null,
+            section: null, batas_jam: '09:00', terlambat: null,
+        });
         router.get('/absensi', {}, { preserveState: false, replace: true });
     };
 
