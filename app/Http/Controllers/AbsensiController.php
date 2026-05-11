@@ -18,17 +18,24 @@ class AbsensiController extends Controller
 
     public function index(Request $request): Response
     {
-        $filterBulan      = $request->query('bulan');
-        $filterTahun      = $request->query('tahun');
-        $filterTanggalDari = $request->query('tanggal_dari');
-        $filterTanggalSampai = $request->query('tanggal_sampai');
-        $filterNama       = $request->query('nama');
-        $filterDepartemen = $request->query('departemen');
-        $filterShift      = $request->query('shift');
-        $filterStatus     = $request->query('status_tidur');
-        $filterSection    = $request->query('section');
-        $filterBatasJam   = $request->query('batas_jam', '09:00');
-        $filterTerlambat  = $request->query('terlambat');
+        /** @var \App\Models\User|null $user */
+        $user = $request->user();
+        $savedPrefs = $user?->filter_preferences ?? [];
+
+        // Jika tidak ada query params sama sekali, gunakan saved preferences
+        $hasQueryParams = count($request->query()) > 0;
+
+        $filterBulan         = $request->query('bulan',          $hasQueryParams ? null : ($savedPrefs['bulan'] ?? null));
+        $filterTahun         = $request->query('tahun',          $hasQueryParams ? null : ($savedPrefs['tahun'] ?? null));
+        $filterTanggalDari   = $request->query('tanggal_dari',   $hasQueryParams ? null : ($savedPrefs['tanggal_dari'] ?? null));
+        $filterTanggalSampai = $request->query('tanggal_sampai', $hasQueryParams ? null : ($savedPrefs['tanggal_sampai'] ?? null));
+        $filterNama          = $request->query('nama',           $hasQueryParams ? null : ($savedPrefs['nama'] ?? null));
+        $filterDepartemen    = $request->query('departemen',     $hasQueryParams ? null : ($savedPrefs['departemen'] ?? null));
+        $filterShift         = $request->query('shift',          $hasQueryParams ? null : ($savedPrefs['shift'] ?? null));
+        $filterStatus        = $request->query('status_tidur',   $hasQueryParams ? null : ($savedPrefs['status_tidur'] ?? null));
+        $filterSection       = $request->query('section',        $hasQueryParams ? null : ($savedPrefs['section'] ?? null));
+        $filterBatasJam      = $request->query('batas_jam',      $hasQueryParams ? '09:00' : ($savedPrefs['batas_jam'] ?? '09:00'));
+        $filterTerlambat     = $request->query('terlambat',      $hasQueryParams ? null : ($savedPrefs['terlambat'] ?? null));
 
         $allRecords = Absensi::orderBy('id', 'desc')->get();
         $data       = $allRecords->map(fn ($r) => $this->normalizeDbRecord($r->toArray()))->toArray();

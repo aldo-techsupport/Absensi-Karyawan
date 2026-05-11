@@ -6,6 +6,7 @@ use App\Http\Controllers\AbsensiFormController;
 use App\Http\Controllers\FormConfigController;
 use App\Http\Controllers\FormSettingController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserFilterPreferenceController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login')->name('home');
@@ -21,6 +22,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // ── Semua user bisa akses (view + export) ──
     Route::get('absensi', [AbsensiController::class, 'index'])->name('absensi.index');
     Route::get('absensi/trash', [AbsensiController::class, 'trash'])->name('absensi.trash');
+    Route::post('user/filter-preferences', [UserFilterPreferenceController::class, 'save'])->name('user.filter-preferences.save');
 
     // ── Admin only ──
     Route::middleware('admin')->group(function () {
