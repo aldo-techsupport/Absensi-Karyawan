@@ -82,6 +82,11 @@ class AbsensiController extends Controller
                 'schedule_days'    => $formSetting->schedule_days ?? ['1','2','3','4','5'],
                 'schedule_start'   => $formSetting->schedule_start ?? '06:00',
                 'schedule_end'     => $formSetting->schedule_end ?? '10:00',
+                'location_enabled' => (bool) $formSetting->location_enabled,
+                'location_lat'     => $formSetting->location_lat,
+                'location_lng'     => $formSetting->location_lng,
+                'location_radius'  => $formSetting->location_radius ?? 100,
+                'location_embed_url' => $formSetting->location_embed_url,
             ],
         ]);
     }

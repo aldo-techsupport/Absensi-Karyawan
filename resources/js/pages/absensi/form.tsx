@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Moon, Sun } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { AlertCircle, CheckCircle2, Loader2, MapPin, Moon, ShieldAlert, Sun } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -217,12 +217,22 @@ export default function AbsensiForm({
     formConfigs = {},
     formIsOpen = true,
     closedMessage = 'Form absensi sedang ditutup. Silakan hubungi admin.',
+    locationEnabled = false,
+    locationLat = null,
+    locationLng = null,
+    locationRadius = 100,
+    locationEmbedHtml = null,
 }: {
     defaultTanggal: string;
     defaultHari: string;
     formConfigs: Record<string, FieldConfig>;
     formIsOpen?: boolean;
     closedMessage?: string;
+    locationEnabled?: boolean;
+    locationLat?: number | null;
+    locationLng?: number | null;
+    locationRadius?: number;
+    locationEmbedHtml?: string | null;
 }) {
     // Helper: ambil opsi dari config, tambahkan 'Other' di akhir
     const opts = (key: string, fallback: string[]) =>
@@ -289,19 +299,83 @@ export default function AbsensiForm({
         setDurasi(hitungDurasi(data.mulai_tidur, data.bangun_tidur));
     }, [data.mulai_tidur, data.bangun_tidur]);
 
+    // ─── Geolocation ──────────────────────────────────────────────────────────
+    type GeoStatus = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable' | 'out_of_range';
+    const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
+    const [geoDistance, setGeoDistance] = useState<number | null>(null);
+    const watchIdRef = useRef<number | null>(null);
+
+    // Haversine formula — returns distance in meters
+    function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+        const R = 6371000;
+        const toRad = (d: number) => (d * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    useEffect(() => {
+        if (!locationEnabled || locationLat == null || locationLng == null) return;
+
+        if (!navigator.geolocation) {
+            setGeoStatus('unavailable');
+            return;
+        }
+
+        setGeoStatus('requesting');
+
+        const onSuccess = (pos: GeolocationPosition) => {
+            const dist = haversineDistance(
+                pos.coords.latitude, pos.coords.longitude,
+                locationLat!, locationLng!,
+            );
+            setGeoDistance(Math.round(dist));
+            setGeoStatus(dist <= locationRadius ? 'granted' : 'out_of_range');
+        };
+
+        const onError = (err: GeolocationPositionError) => {
+            if (err.code === GeolocationPositionError.PERMISSION_DENIED) {
+                setGeoStatus('denied');
+            } else {
+                setGeoStatus('unavailable');
+            }
+        };
+
+        const opts: PositionOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+
+        // Get once immediately, then watch for updates
+        navigator.geolocation.getCurrentPosition(onSuccess, onError, opts);
+        watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, opts);
+
+        return () => {
+            if (watchIdRef.current != null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locationEnabled, locationLat, locationLng, locationRadius]);
+
+    // Block submit if location validation is active and not granted
+    const locationBlocked = locationEnabled && locationLat != null && geoStatus !== 'granted';
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const payload = {
-            ...data,
-            perusahaan: data.perusahaan === 'Other' ? data.perusahaan_other : data.perusahaan,
-            departemen: data.departemen === 'Other' ? data.departemen_other : data.departemen,
-            kegiatan:   data.kegiatan   === 'Other' ? data.kegiatan_other   : data.kegiatan,
-            section:    data.section    === 'Other' ? data.section_other    : data.section,
-            lokasi:     data.lokasi     === 'Other' ? data.lokasi_other     : data.lokasi,
-            // Tambahkan peran ke judul jika Pemateri
-            judul_kegiatan: data.judul_kegiatan,
-        };
-        post('/absensi/form', { data: payload });
+        if (locationBlocked) return; // safety guard
+        post('/absensi/form', {
+            // @ts-expect-error — Inertia useForm supports transform via this pattern
+            data: {
+                ...data,
+                perusahaan: data.perusahaan === 'Other' ? data.perusahaan_other : data.perusahaan,
+                departemen: data.departemen === 'Other' ? data.departemen_other : data.departemen,
+                kegiatan:   data.kegiatan   === 'Other' ? data.kegiatan_other   : data.kegiatan,
+                section:    data.section    === 'Other' ? data.section_other    : data.section,
+                lokasi:     data.lokasi     === 'Other' ? data.lokasi_other     : data.lokasi,
+                judul_kegiatan: data.judul_kegiatan,
+            },
+        });
     };
 
     return (
@@ -332,6 +406,122 @@ export default function AbsensiForm({
                             </p>
                         </div>
                     </div>
+
+                    {/* ── Validasi Lokasi GPS ── */}
+                    {locationEnabled && locationLat != null && (
+                        <div className={`mb-4 overflow-hidden rounded-2xl border-2 shadow-sm ${
+                            geoStatus === 'granted'
+                                ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950/30'
+                                : geoStatus === 'out_of_range'
+                                ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/30'
+                                : geoStatus === 'denied'
+                                ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/30'
+                                : 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950/30'
+                        }`}>
+                            <div className="flex items-start gap-3 p-4">
+                                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                    geoStatus === 'granted'
+                                        ? 'bg-green-100 dark:bg-green-900/40'
+                                        : geoStatus === 'out_of_range' || geoStatus === 'denied'
+                                        ? 'bg-red-100 dark:bg-red-900/40'
+                                        : 'bg-yellow-100 dark:bg-yellow-900/40'
+                                }`}>
+                                    {geoStatus === 'requesting' || geoStatus === 'idle' ? (
+                                        <Loader2 className="h-5 w-5 animate-spin text-yellow-600 dark:text-yellow-400" />
+                                    ) : geoStatus === 'granted' ? (
+                                        <MapPin className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                    ) : (
+                                        <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    {geoStatus === 'idle' || geoStatus === 'requesting' ? (
+                                        <>
+                                            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
+                                                Meminta izin lokasi...
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-yellow-700 dark:text-yellow-400">
+                                                Izinkan akses lokasi di browser Anda untuk melanjutkan absensi.
+                                            </p>
+                                        </>
+                                    ) : geoStatus === 'denied' ? (
+                                        <>
+                                            <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                                                Izin lokasi ditolak
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
+                                                Aktifkan izin lokasi di pengaturan browser Anda, lalu muat ulang halaman ini.
+                                            </p>
+                                        </>
+                                    ) : geoStatus === 'unavailable' ? (
+                                        <>
+                                            <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                                                Lokasi tidak tersedia
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
+                                                Perangkat Anda tidak mendukung GPS atau sinyal tidak tersedia.
+                                            </p>
+                                        </>
+                                    ) : geoStatus === 'out_of_range' ? (
+                                        <>
+                                            <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                                                Di luar area absensi
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
+                                                Anda berada {geoDistance != null ? `±${geoDistance} m` : ''} dari lokasi absensi.
+                                                Radius yang diizinkan: <strong>{locationRadius} meter</strong>.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+                                                Lokasi terverifikasi ✓
+                                            </p>
+                                            <p className="mt-0.5 text-xs text-green-700 dark:text-green-400">
+                                                Anda berada dalam radius {locationRadius} m dari lokasi absensi
+                                                {geoDistance != null ? ` (±${geoDistance} m)` : ''}.
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Peta lokasi absensi */}
+                            {locationEmbedHtml && (
+                                <div className="overflow-hidden rounded-xl border border-current/10">
+                                    <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
+                                        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                            <MapPin className="h-3.5 w-3.5" />
+                                            Lokasi di Peta
+                                        </span>
+                                        {locationLat && locationLng && (
+                                            <a
+                                                href={`https://www.google.com/maps?q=${locationLat},${locationLng}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                                            >
+                                                Buka di Google Maps ↗
+                                            </a>
+                                        )}
+                                    </div>
+                                    <div
+                                        className="aspect-video w-full [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0"
+                                        dangerouslySetInnerHTML={{
+                                            __html: locationEmbedHtml
+                                                .replace(/width="[^"]*"/g, '')
+                                                .replace(/height="[^"]*"/g, ''),
+                                        }}
+                                    />
+                                    <div className="border-t bg-muted/30 px-4 py-2 text-center">
+                                        <p className="text-xs text-muted-foreground">
+                                            Radius validasi: <strong>{locationRadius} meter</strong> dari titik koordinat
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* ── Form Ditutup ── */}
                     {!formIsOpen && (
@@ -652,13 +842,26 @@ export default function AbsensiForm({
                             {/* Submit */}
                             <Button
                                 type="submit"
-                                disabled={processing}
-                                className="w-full bg-gradient-to-r from-blue-600 to-violet-600 py-6 text-base font-semibold hover:from-blue-700 hover:to-violet-700"
+                                disabled={processing || locationBlocked}
+                                className={`w-full py-6 text-base font-semibold transition-all ${
+                                    locationBlocked
+                                        ? 'cursor-not-allowed bg-gray-400 opacity-60'
+                                        : 'bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700'
+                                }`}
                             >
                                 {processing ? (
                                     <span className="flex items-center gap-2">
                                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                                         Mengirim...
+                                    </span>
+                                ) : locationBlocked ? (
+                                    <span className="flex items-center gap-2">
+                                        <ShieldAlert className="h-5 w-5" />
+                                        {geoStatus === 'requesting' || geoStatus === 'idle'
+                                            ? 'Mendeteksi lokasi...'
+                                            : geoStatus === 'denied'
+                                            ? 'Izin lokasi diperlukan'
+                                            : 'Di luar area absensi'}
                                     </span>
                                 ) : (
                                     <span className="flex items-center gap-2">

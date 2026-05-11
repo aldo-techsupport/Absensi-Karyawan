@@ -18,11 +18,16 @@ class AbsensiFormController extends Controller
         $isOpen  = $setting->isOpen();
 
         return Inertia::render('absensi/form', [
-            'defaultTanggal' => Carbon::today()->format('Y-m-d'),
-            'defaultHari'    => Carbon::today()->locale('id')->isoFormat('dddd'),
-            'formConfigs'    => FormConfigController::getActiveConfigs(),
-            'formIsOpen'     => $isOpen,
-            'closedMessage'  => $setting->closed_message,
+            'defaultTanggal'    => Carbon::today()->format('Y-m-d'),
+            'defaultHari'       => Carbon::today()->locale('id')->isoFormat('dddd'),
+            'formConfigs'       => FormConfigController::getActiveConfigs(),
+            'formIsOpen'        => $isOpen,
+            'closedMessage'     => $setting->closed_message,
+            'locationEnabled'   => (bool) $setting->location_enabled,
+            'locationLat'       => $setting->location_lat,
+            'locationLng'       => $setting->location_lng,
+            'locationRadius'    => $setting->location_radius ?? 100,
+            'locationEmbedHtml' => $setting->location_embed_url,
         ]);
     }
 

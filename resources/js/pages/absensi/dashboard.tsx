@@ -6,6 +6,7 @@ import {
     Clock,
     Download,
     ExternalLink,
+    MapPin,
     Pencil,
     PlayCircle,
     Search,
@@ -124,6 +125,11 @@ interface Props {
         schedule_days: string[];
         schedule_start: string;
         schedule_end: string;
+        location_enabled: boolean;
+        location_lat: number | null;
+        location_lng: number | null;
+        location_radius: number;
+        location_embed_url: string | null;
     };
 }
 

@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, ClipboardList, FolderGit2, Users } from 'lucide-react';
+import { BookOpen, ClipboardList, FolderGit2, MapPin, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -25,6 +25,11 @@ const mainNavItems: NavItem[] = [
 ];
 
 const adminNavItems: NavItem[] = [
+    {
+        title: 'Lokasi Absensi',
+        href: '/absensi/lokasi',
+        icon: MapPin,
+    },
     {
         title: 'Kelola User',
         href: '/users',

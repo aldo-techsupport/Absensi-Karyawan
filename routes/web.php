@@ -40,9 +40,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('absensi/form-config/{id}/toggle', [FormConfigController::class, 'toggle'])->name('absensi.form-config.toggle');
         Route::delete('absensi/form-config/{id}', [FormConfigController::class, 'destroy'])->name('absensi.form-config.destroy');
 
-        // ── Form Setting (start/stop + schedule) ──
+        // ── Form Setting (start/stop + schedule + location) ──
         Route::post('absensi/form-setting/toggle', [FormSettingController::class, 'toggle'])->name('absensi.form-setting.toggle');
         Route::post('absensi/form-setting/schedule', [FormSettingController::class, 'updateSchedule'])->name('absensi.form-setting.schedule');
+        Route::get('absensi/lokasi', [FormSettingController::class, 'lokasi'])->name('absensi.lokasi');
+        Route::post('absensi/form-setting/location', [FormSettingController::class, 'updateLocation'])->name('absensi.form-setting.location');
 
         // ── Kelola User ──
         Route::get('users', [UserController::class, 'index'])->name('users.index');

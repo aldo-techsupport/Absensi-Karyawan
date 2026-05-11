@@ -5,9 +5,29 @@ namespace App\Http\Controllers;
 use App\Models\FormSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class FormSettingController extends Controller
 {
+    /**
+     * Halaman pengaturan lokasi GPS absensi.
+     */
+    public function lokasi(): Response
+    {
+        $setting = FormSetting::instance();
+
+        return Inertia::render('absensi/lokasi', [
+            'setting' => [
+                'location_enabled'   => (bool) $setting->location_enabled,
+                'location_lat'       => $setting->location_lat,
+                'location_lng'       => $setting->location_lng,
+                'location_radius'    => $setting->location_radius ?? 100,
+                'location_embed_url' => $setting->location_embed_url,
+            ],
+        ]);
+    }
+
     /**
      * Toggle form status: open ↔ closed (manual).
      */
@@ -41,5 +61,25 @@ class FormSettingController extends Controller
         $setting->update($validated);
 
         return redirect()->back()->with('success', 'Pengaturan jadwal berhasil disimpan.');
+    }
+
+    /**
+     * Simpan pengaturan validasi lokasi GPS.
+     */
+    public function updateLocation(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'location_enabled'   => 'boolean',
+            'location_lat'       => 'nullable|numeric|between:-90,90',
+            'location_lng'       => 'nullable|numeric|between:-180,180',
+            'location_radius'    => 'nullable|integer|min:10|max:5000',
+            'location_embed_url' => 'nullable|string|max:2000',
+        ]);
+
+        $setting = FormSetting::instance();
+        $setting->update($validated);
+
+        return redirect()->route('absensi.lokasi')
+            ->with('success', 'Pengaturan lokasi berhasil disimpan.');
     }
 }

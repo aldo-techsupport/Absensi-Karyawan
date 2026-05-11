@@ -16,11 +16,20 @@ class FormSetting extends Model
         'schedule_days',
         'schedule_start',
         'schedule_end',
+        'location_enabled',
+        'location_lat',
+        'location_lng',
+        'location_radius',
+        'location_embed_url',
     ];
 
     protected $casts = [
-        'schedule_enabled' => 'boolean',
-        'schedule_days'    => 'array',
+        'schedule_enabled'  => 'boolean',
+        'schedule_days'     => 'array',
+        'location_enabled'  => 'boolean',
+        'location_lat'      => 'float',
+        'location_lng'      => 'float',
+        'location_radius'   => 'integer',
     ];
 
     /**
@@ -35,6 +44,11 @@ class FormSetting extends Model
             'schedule_days'    => ['1', '2', '3', '4', '5'],
             'schedule_start'   => '06:00',
             'schedule_end'     => '10:00',
+            'location_enabled' => false,
+            'location_lat'     => null,
+            'location_lng'     => null,
+            'location_radius'  => 100,
+            'location_embed_url' => null,
         ]);
     }
 
