@@ -407,119 +407,144 @@ export default function AbsensiForm({
                         </div>
                     </div>
 
-                    {/* ── Validasi Lokasi GPS ── */}
-                    {locationEnabled && locationLat != null && (
-                        <div className={`mb-4 overflow-hidden rounded-2xl border-2 shadow-sm ${
-                            geoStatus === 'granted'
-                                ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950/30'
-                                : geoStatus === 'out_of_range'
-                                ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/30'
-                                : geoStatus === 'denied'
-                                ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/30'
-                                : 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950/30'
-                        }`}>
-                            <div className="flex items-start gap-3 p-4">
-                                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                                    geoStatus === 'granted'
-                                        ? 'bg-green-100 dark:bg-green-900/40'
-                                        : geoStatus === 'out_of_range' || geoStatus === 'denied'
-                                        ? 'bg-red-100 dark:bg-red-900/40'
-                                        : 'bg-yellow-100 dark:bg-yellow-900/40'
+                    {/* ── Validasi Lokasi GPS — Full Blocker ── */}
+                    {locationEnabled && locationLat != null && geoStatus !== 'granted' && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl dark:bg-gray-900 overflow-hidden">
+
+                                {/* Header */}
+                                <div className={`px-6 py-5 text-center ${
+                                    geoStatus === 'idle' || geoStatus === 'requesting'
+                                        ? 'bg-yellow-500'
+                                        : geoStatus === 'denied' || geoStatus === 'unavailable'
+                                        ? 'bg-red-500'
+                                        : 'bg-red-500'
                                 }`}>
-                                    {geoStatus === 'requesting' || geoStatus === 'idle' ? (
-                                        <Loader2 className="h-5 w-5 animate-spin text-yellow-600 dark:text-yellow-400" />
-                                    ) : geoStatus === 'granted' ? (
-                                        <MapPin className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                    ) : (
-                                        <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400" />
-                                    )}
+                                    <div className="flex justify-center mb-3">
+                                        {geoStatus === 'idle' || geoStatus === 'requesting' ? (
+                                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+                                                <Loader2 className="h-8 w-8 animate-spin text-white" />
+                                            </div>
+                                        ) : (
+                                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+                                                <ShieldAlert className="h-8 w-8 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <h2 className="text-lg font-bold text-white">
+                                        {geoStatus === 'idle' || geoStatus === 'requesting'
+                                            ? 'Meminta Izin Lokasi...'
+                                            : geoStatus === 'denied'
+                                            ? 'Izin Lokasi Ditolak'
+                                            : geoStatus === 'unavailable'
+                                            ? 'GPS Tidak Tersedia'
+                                            : 'Di Luar Area Absensi'}
+                                    </h2>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    {geoStatus === 'idle' || geoStatus === 'requesting' ? (
+
+                                {/* Body */}
+                                <div className="px-6 py-5 space-y-4">
+                                    {(geoStatus === 'idle' || geoStatus === 'requesting') && (
                                         <>
-                                            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
-                                                Meminta izin lokasi...
+                                            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                                                Absensi ini memerlukan verifikasi lokasi. Izinkan akses lokasi saat browser meminta izin.
                                             </p>
-                                            <p className="mt-0.5 text-xs text-yellow-700 dark:text-yellow-400">
-                                                Izinkan akses lokasi di browser Anda untuk melanjutkan absensi.
-                                            </p>
+                                            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-950/30">
+                                                <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-300 mb-1">Cara mengizinkan:</p>
+                                                <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                                                    Klik <strong>"Izinkan"</strong> atau <strong>"Allow"</strong> pada popup yang muncul di browser Anda.
+                                                </p>
+                                            </div>
                                         </>
-                                    ) : geoStatus === 'denied' ? (
+                                    )}
+
+                                    {geoStatus === 'denied' && (
                                         <>
-                                            <p className="text-sm font-semibold text-red-800 dark:text-red-300">
-                                                Izin lokasi ditolak
+                                            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                                                Anda menolak izin lokasi. Absensi tidak dapat dilakukan tanpa verifikasi lokasi.
                                             </p>
-                                            <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
-                                                Aktifkan izin lokasi di pengaturan browser Anda, lalu muat ulang halaman ini.
-                                            </p>
+                                            <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30 space-y-2">
+                                                <p className="text-xs font-semibold text-red-800 dark:text-red-300">Cara mengaktifkan lokasi:</p>
+                                                <ol className="text-xs text-red-700 dark:text-red-400 space-y-1 list-decimal list-inside">
+                                                    <li>Klik ikon 🔒 atau ⓘ di address bar browser</li>
+                                                    <li>Cari <strong>Lokasi / Location</strong></li>
+                                                    <li>Ubah ke <strong>Izinkan / Allow</strong></li>
+                                                    <li>Muat ulang halaman ini</li>
+                                                </ol>
+                                            </div>
+                                            <Button
+                                                className="w-full"
+                                                onClick={() => window.location.reload()}
+                                            >
+                                                Muat Ulang Halaman
+                                            </Button>
                                         </>
-                                    ) : geoStatus === 'unavailable' ? (
+                                    )}
+
+                                    {geoStatus === 'unavailable' && (
                                         <>
-                                            <p className="text-sm font-semibold text-red-800 dark:text-red-300">
-                                                Lokasi tidak tersedia
+                                            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                                                GPS tidak tersedia di perangkat ini atau sinyal lemah. Pastikan GPS aktif dan coba lagi.
                                             </p>
-                                            <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
-                                                Perangkat Anda tidak mendukung GPS atau sinyal tidak tersedia.
-                                            </p>
+                                            <Button
+                                                className="w-full"
+                                                onClick={() => window.location.reload()}
+                                            >
+                                                Coba Lagi
+                                            </Button>
                                         </>
-                                    ) : geoStatus === 'out_of_range' ? (
+                                    )}
+
+                                    {geoStatus === 'out_of_range' && (
                                         <>
-                                            <p className="text-sm font-semibold text-red-800 dark:text-red-300">
-                                                Di luar area absensi
+                                            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                                                Anda berada <strong>{geoDistance != null ? `±${geoDistance} meter` : 'terlalu jauh'}</strong> dari lokasi absensi.
+                                                Harus dalam radius <strong>{locationRadius} meter</strong>.
                                             </p>
-                                            <p className="mt-0.5 text-xs text-red-700 dark:text-red-400">
-                                                Anda berada {geoDistance != null ? `±${geoDistance} m` : ''} dari lokasi absensi.
-                                                Radius yang diizinkan: <strong>{locationRadius} meter</strong>.
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="text-sm font-semibold text-green-800 dark:text-green-300">
-                                                Lokasi terverifikasi ✓
-                                            </p>
-                                            <p className="mt-0.5 text-xs text-green-700 dark:text-green-400">
-                                                Anda berada dalam radius {locationRadius} m dari lokasi absensi
-                                                {geoDistance != null ? ` (±${geoDistance} m)` : ''}.
-                                            </p>
+                                            {locationEmbedHtml && (
+                                                <div className="overflow-hidden rounded-xl border">
+                                                    <div
+                                                        className="h-40 w-full [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0"
+                                                        dangerouslySetInnerHTML={{
+                                                            __html: locationEmbedHtml
+                                                                .replace(/width="[^"]*"/g, '')
+                                                                .replace(/height="[^"]*"/g, ''),
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            {locationLat && locationLng && (
+                                                <a
+                                                    href={`https://www.google.com/maps?q=${locationLat},${locationLng}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block"
+                                                >
+                                                    <Button variant="outline" className="w-full gap-2">
+                                                        <MapPin className="h-4 w-4" />
+                                                        Lihat Lokasi Absensi di Maps
+                                                    </Button>
+                                                </a>
+                                            )}
                                         </>
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
 
-                            {/* Peta lokasi absensi */}
-                            {locationEmbedHtml && (
-                                <div className="overflow-hidden rounded-xl border border-current/10">
-                                    <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
-                                        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                                            <MapPin className="h-3.5 w-3.5" />
-                                            Lokasi di Peta
-                                        </span>
-                                        {locationLat && locationLng && (
-                                            <a
-                                                href={`https://www.google.com/maps?q=${locationLat},${locationLng}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
-                                            >
-                                                Buka di Google Maps ↗
-                                            </a>
-                                        )}
-                                    </div>
-                                    <div
-                                        className="aspect-video w-full [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0"
-                                        dangerouslySetInnerHTML={{
-                                            __html: locationEmbedHtml
-                                                .replace(/width="[^"]*"/g, '')
-                                                .replace(/height="[^"]*"/g, ''),
-                                        }}
-                                    />
-                                    <div className="border-t bg-muted/30 px-4 py-2 text-center">
-                                        <p className="text-xs text-muted-foreground">
-                                            Radius validasi: <strong>{locationRadius} meter</strong> dari titik koordinat
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
+                    {/* ── Status lokasi kecil (saat granted) ── */}
+                    {locationEnabled && locationLat != null && geoStatus === 'granted' && (
+                        <div className="mb-4 flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5 dark:border-green-700 dark:bg-green-950/30">
+                            <MapPin className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+                            <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                                Lokasi terverifikasi ✓
+                                {geoDistance != null && (
+                                    <span className="ml-1 font-normal text-green-700 dark:text-green-400">
+                                        — ±{geoDistance} m dari lokasi absensi
+                                    </span>
+                                )}
+                            </p>
                         </div>
                     )}
 
