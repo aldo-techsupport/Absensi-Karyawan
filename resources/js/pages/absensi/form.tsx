@@ -227,6 +227,7 @@ export default function AbsensiForm({
     locationLng = null,
     locationRadius = 100,
     locationEmbedHtml = null,
+    locationPoints = [],
 }: {
     defaultTanggal: string;
     defaultHari: string;
@@ -238,6 +239,7 @@ export default function AbsensiForm({
     locationLng?: number | null;
     locationRadius?: number;
     locationEmbedHtml?: string | null;
+    locationPoints?: Array<{ lat: number; lng: number; label?: string; enabled: boolean }>;
 }) {
     // Helper: ambil opsi dari config, tambahkan 'Other' di akhir
     const opts = (key: string, fallback: string[]) =>
@@ -324,7 +326,17 @@ export default function AbsensiForm({
     }
 
     useEffect(() => {
-        if (!locationEnabled || locationLat == null || locationLng == null) return;
+        // Kumpulkan semua titik aktif: legacy single-point + location_points
+        const activePoints: Array<{ lat: number; lng: number }> = [];
+
+        if (locationLat != null && locationLng != null) {
+            activePoints.push({ lat: locationLat, lng: locationLng });
+        }
+        for (const p of locationPoints) {
+            if (p.enabled) activePoints.push({ lat: p.lat, lng: p.lng });
+        }
+
+        if (!locationEnabled || activePoints.length === 0) return;
 
         if (!navigator.geolocation) {
             setGeoStatus('unavailable');
@@ -334,13 +346,20 @@ export default function AbsensiForm({
         setGeoStatus('requesting');
 
         const onSuccess = (pos: GeolocationPosition) => {
-            const dist = haversineDistance(
-                pos.coords.latitude, pos.coords.longitude,
-                locationLat!, locationLng!,
-            );
-            setGeoDistance(Math.round(dist));
+            // Cek apakah user dalam radius salah satu titik aktif
+            let minDist = Infinity;
+            let inRange = false;
+            for (const point of activePoints) {
+                const dist = haversineDistance(
+                    pos.coords.latitude, pos.coords.longitude,
+                    point.lat, point.lng,
+                );
+                if (dist < minDist) minDist = dist;
+                if (dist <= locationRadius) { inRange = true; break; }
+            }
+            setGeoDistance(Math.round(minDist));
             setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-            setGeoStatus(dist <= locationRadius ? 'granted' : 'out_of_range');
+            setGeoStatus(inRange ? 'granted' : 'out_of_range');
         };
 
         const onError = (err: GeolocationPositionError) => {
@@ -363,10 +382,16 @@ export default function AbsensiForm({
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locationEnabled, locationLat, locationLng, locationRadius]);
+    }, [locationEnabled, locationLat, locationLng, locationRadius, locationPoints]);
+
+    // Hitung apakah ada titik aktif
+    const hasActivePoints = locationEnabled && (
+        (locationLat != null && locationLng != null) ||
+        locationPoints.some(p => p.enabled)
+    );
 
     // Block submit if location validation is active and not granted
-    const locationBlocked = locationEnabled && locationLat != null && geoStatus !== 'granted';
+    const locationBlocked = hasActivePoints && geoStatus !== 'granted';
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -418,7 +443,7 @@ export default function AbsensiForm({
                     </div>
 
                     {/* ── Validasi Lokasi GPS — Full Blocker ── */}
-                    {locationEnabled && locationLat != null && geoStatus !== 'granted' && (
+                    {hasActivePoints && geoStatus !== 'granted' && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
                             <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl dark:bg-gray-900 overflow-hidden">
 

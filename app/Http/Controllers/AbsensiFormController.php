@@ -28,6 +28,7 @@ class AbsensiFormController extends Controller
             'locationLng'       => $setting->location_lng,
             'locationRadius'    => $setting->location_radius ?? 100,
             'locationEmbedHtml' => $setting->location_embed_url,
+            'locationPoints'    => $setting->location_points ?? [],
         ]);
     }
 
@@ -40,21 +41,62 @@ class AbsensiFormController extends Controller
         }
 
         // ── Validasi lokasi GPS (server-side) ──────────────────────────────────
-        if ($setting->location_enabled && $setting->location_lat !== null && $setting->location_lng !== null) {
+        if ($setting->location_enabled) {
             $userLat = $request->input('user_lat');
             $userLng = $request->input('user_lng');
 
-            if ($userLat === null || $userLng === null) {
-                return back()->withErrors(['location' => 'Verifikasi lokasi diperlukan. Izinkan akses GPS di browser Anda.'])->withInput();
+            // Kumpulkan semua titik aktif: legacy single-point + location_points
+            $activePoints = [];
+
+            // Legacy single-point (location_lat / location_lng)
+            if ($setting->location_lat !== null && $setting->location_lng !== null) {
+                $activePoints[] = [
+                    'lat'   => (float) $setting->location_lat,
+                    'lng'   => (float) $setting->location_lng,
+                    'label' => 'Lokasi Utama',
+                ];
             }
 
-            $dist = $this->haversineDistance(
-                (float) $userLat, (float) $userLng,
-                (float) $setting->location_lat, (float) $setting->location_lng
-            );
+            // Multi-point dari location_points
+            $points = $setting->location_points ?? [];
+            foreach ($points as $point) {
+                if (!empty($point['enabled'])) {
+                    $activePoints[] = [
+                        'lat'   => (float) $point['lat'],
+                        'lng'   => (float) $point['lng'],
+                        'label' => $point['label'] ?? 'Titik Lokasi',
+                    ];
+                }
+            }
 
-            if ($dist > ($setting->location_radius ?? 100)) {
-                return back()->withErrors(['location' => 'Anda berada di luar area absensi (±' . round($dist) . ' m). Harus dalam radius ' . $setting->location_radius . ' m.'])->withInput();
+            if (!empty($activePoints)) {
+                if ($userLat === null || $userLng === null) {
+                    return back()->withErrors(['location' => 'Verifikasi lokasi diperlukan. Izinkan akses GPS di browser Anda.'])->withInput();
+                }
+
+                $radius = $setting->location_radius ?? 100;
+                $inRange = false;
+                $minDist = PHP_INT_MAX;
+
+                foreach ($activePoints as $point) {
+                    $dist = $this->haversineDistance(
+                        (float) $userLat, (float) $userLng,
+                        $point['lat'], $point['lng']
+                    );
+                    if ($dist < $minDist) {
+                        $minDist = $dist;
+                    }
+                    if ($dist <= $radius) {
+                        $inRange = true;
+                        break;
+                    }
+                }
+
+                if (!$inRange) {
+                    return back()->withErrors([
+                        'location' => 'Anda berada di luar area absensi (±' . round($minDist) . ' m dari titik terdekat). Harus dalam radius ' . $radius . ' m.',
+                    ])->withInput();
+                }
             }
         }
 

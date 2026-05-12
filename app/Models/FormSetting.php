@@ -21,6 +21,7 @@ class FormSetting extends Model
         'location_lng',
         'location_radius',
         'location_embed_url',
+        'location_points',
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class FormSetting extends Model
         'location_lat'      => 'float',
         'location_lng'      => 'float',
         'location_radius'   => 'integer',
+        'location_points'   => 'array',
     ];
 
     /**

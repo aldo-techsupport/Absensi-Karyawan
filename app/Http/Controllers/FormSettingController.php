@@ -17,6 +17,9 @@ class FormSettingController extends Controller
     {
         $setting = FormSetting::instance();
 
+        // Normalisasi location_points — pastikan selalu array
+        $points = $setting->location_points ?? [];
+
         return Inertia::render('absensi/lokasi', [
             'setting' => [
                 'location_enabled'   => (bool) $setting->location_enabled,
@@ -24,6 +27,7 @@ class FormSettingController extends Controller
                 'location_lng'       => $setting->location_lng,
                 'location_radius'    => $setting->location_radius ?? 100,
                 'location_embed_url' => $setting->location_embed_url,
+                'location_points'    => $points,
             ],
         ]);
     }
@@ -69,11 +73,16 @@ class FormSettingController extends Controller
     public function updateLocation(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'location_enabled'   => 'boolean',
-            'location_lat'       => 'nullable|numeric|between:-90,90',
-            'location_lng'       => 'nullable|numeric|between:-180,180',
-            'location_radius'    => 'nullable|integer|min:10|max:5000',
-            'location_embed_url' => 'nullable|string|max:2000',
+            'location_enabled'     => 'boolean',
+            'location_lat'         => 'nullable|numeric|between:-90,90',
+            'location_lng'         => 'nullable|numeric|between:-180,180',
+            'location_radius'      => 'nullable|integer|min:10|max:5000',
+            'location_embed_url'   => 'nullable|string|max:2000',
+            'location_points'      => 'nullable|array|max:10',
+            'location_points.*.lat'     => 'required|numeric|between:-90,90',
+            'location_points.*.lng'     => 'required|numeric|between:-180,180',
+            'location_points.*.label'   => 'nullable|string|max:100',
+            'location_points.*.enabled' => 'boolean',
         ]);
 
         $setting = FormSetting::instance();
