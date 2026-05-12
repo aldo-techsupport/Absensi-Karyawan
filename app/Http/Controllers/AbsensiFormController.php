@@ -94,7 +94,7 @@ class AbsensiFormController extends Controller
 
                 if (!$inRange) {
                     return back()->withErrors([
-                        'location' => 'Anda berada di luar area absensi (±' . round($minDist) . ' m dari titik terdekat). Harus dalam radius ' . $radius . ' m.',
+                        'location' => 'Wilayah Terdekat Absen berada dalam ' . round($minDist) . ' meter dari lokasi.',
                     ])->withInput();
                 }
             }

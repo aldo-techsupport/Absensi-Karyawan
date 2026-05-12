@@ -310,6 +310,7 @@ export default function AbsensiForm({
     type GeoStatus = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable' | 'out_of_range';
     const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
     const [geoDistance, setGeoDistance] = useState<number | null>(null);
+    const [nearestPoint, setNearestPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
     const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
     const watchIdRef = useRef<number | null>(null);
 
@@ -327,13 +328,21 @@ export default function AbsensiForm({
 
     useEffect(() => {
         // Kumpulkan semua titik aktif: legacy single-point + location_points
-        const activePoints: Array<{ lat: number; lng: number }> = [];
+        // Deduplikasi: jika location_points sudah ada isinya, skip legacy single-point
+        const activePoints: Array<{ lat: number; lng: number; label: string }> = [];
 
-        if (locationLat != null && locationLng != null) {
-            activePoints.push({ lat: locationLat, lng: locationLng });
+        const hasPoints = locationPoints.some(p => p.enabled);
+
+        if (!hasPoints && locationLat != null && locationLng != null) {
+            // Hanya pakai legacy jika tidak ada location_points aktif
+            activePoints.push({ lat: locationLat, lng: locationLng, label: 'Lokasi Absensi' });
         }
         for (const p of locationPoints) {
-            if (p.enabled) activePoints.push({ lat: p.lat, lng: p.lng });
+            if (p.enabled) activePoints.push({
+                lat: p.lat,
+                lng: p.lng,
+                label: p.label || 'Lokasi Absensi',
+            });
         }
 
         if (!locationEnabled || activePoints.length === 0) return;
@@ -346,18 +355,28 @@ export default function AbsensiForm({
         setGeoStatus('requesting');
 
         const onSuccess = (pos: GeolocationPosition) => {
-            // Cek apakah user dalam radius salah satu titik aktif
+            // Cari titik terdekat dan cek apakah dalam radius
             let minDist = Infinity;
+            let nearest = activePoints[0];
             let inRange = false;
+
             for (const point of activePoints) {
                 const dist = haversineDistance(
                     pos.coords.latitude, pos.coords.longitude,
                     point.lat, point.lng,
                 );
-                if (dist < minDist) minDist = dist;
-                if (dist <= locationRadius) { inRange = true; break; }
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = point;
+                }
+                if (dist <= locationRadius) {
+                    inRange = true;
+                    // Jangan break — tetap cari yang paling dekat untuk info
+                }
             }
+
             setGeoDistance(Math.round(minDist));
+            setNearestPoint(nearest);
             setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
             setGeoStatus(inRange ? 'granted' : 'out_of_range');
         };
@@ -386,8 +405,8 @@ export default function AbsensiForm({
 
     // Hitung apakah ada titik aktif
     const hasActivePoints = locationEnabled && (
-        (locationLat != null && locationLng != null) ||
-        locationPoints.some(p => p.enabled)
+        locationPoints.some(p => p.enabled) ||
+        (locationLat != null && locationLng != null && !locationPoints.some(p => p.enabled))
     );
 
     // Block submit if location validation is active and not granted
@@ -568,25 +587,35 @@ export default function AbsensiForm({
 
                                     {geoStatus === 'out_of_range' && (
                                         <>
-                                            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                                                Anda berada <strong>{geoDistance != null ? `±${geoDistance} meter` : 'terlalu jauh'}</strong> dari lokasi absensi.
-                                                Harus dalam radius <strong>{locationRadius} meter</strong>.
-                                            </p>
-                                            {locationEmbedHtml && (
+                                            <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-4 text-center space-y-1">
+                                                <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+                                                    Wilayah Terdekat Absen
+                                                </p>
+                                                <p className="text-sm text-red-700 dark:text-red-400">
+                                                    {nearestPoint?.label && (
+                                                        <span className="font-medium">{nearestPoint.label} — </span>
+                                                    )}
+                                                    berada dalam{' '}
+                                                    <strong>{geoDistance != null ? `${geoDistance} meter` : '...'}</strong>{' '}
+                                                    dari lokasi
+                                                </p>
+                                            </div>
+                                            {nearestPoint && (
                                                 <div className="overflow-hidden rounded-xl border">
-                                                    <div
-                                                        className="h-40 w-full [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:border-0"
-                                                        dangerouslySetInnerHTML={{
-                                                            __html: locationEmbedHtml
-                                                                .replace(/width="[^"]*"/g, '')
-                                                                .replace(/height="[^"]*"/g, ''),
-                                                        }}
+                                                    <iframe
+                                                        key={`${nearestPoint.lat},${nearestPoint.lng}`}
+                                                        title="Lokasi Absensi Terdekat"
+                                                        src={`https://maps.google.com/maps?q=${nearestPoint.lat},${nearestPoint.lng}&z=17&output=embed&hl=id`}
+                                                        className="h-40 w-full border-0"
+                                                        allowFullScreen
+                                                        loading="lazy"
+                                                        referrerPolicy="no-referrer-when-downgrade"
                                                     />
                                                 </div>
                                             )}
-                                            {locationLat && locationLng && (
+                                            {nearestPoint && (
                                                 <a
-                                                    href={`https://www.google.com/maps?q=${locationLat},${locationLng}`}
+                                                    href={`https://www.google.com/maps?q=${nearestPoint.lat},${nearestPoint.lng}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="block"
@@ -605,17 +634,31 @@ export default function AbsensiForm({
                     )}
 
                     {/* ── Status lokasi kecil (saat granted) ── */}
-                    {locationEnabled && locationLat != null && geoStatus === 'granted' && (
-                        <div className="mb-4 flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-2.5 dark:border-green-700 dark:bg-green-950/30">
-                            <MapPin className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
-                            <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                                Lokasi terverifikasi ✓
-                                {geoDistance != null && (
-                                    <span className="ml-1 font-normal text-green-700 dark:text-green-400">
-                                        — ±{geoDistance} m dari lokasi absensi
-                                    </span>
-                                )}
-                            </p>
+                    {hasActivePoints && geoStatus === 'granted' && (
+                        <div className="mb-4 rounded-xl border border-green-300 bg-green-50 px-4 py-3 dark:border-green-700 dark:bg-green-950/30 space-y-1">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+                                <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                                    Lokasi terverifikasi ✓
+                                    {nearestPoint?.label && (
+                                        <span className="ml-1 font-normal">— {nearestPoint.label}</span>
+                                    )}
+                                </p>
+                            </div>
+                            {(geoDistance != null || userCoords) && (
+                                <div className="pl-6 space-y-0.5">
+                                    {geoDistance != null && (
+                                        <p className="text-xs text-green-700 dark:text-green-400">
+                                            ±{geoDistance} m dari titik absensi
+                                        </p>
+                                    )}
+                                    {userCoords && (
+                                        <p className="font-mono text-xs text-green-600/70 dark:text-green-500/70">
+                                            Posisi Anda: {userCoords.lat.toFixed(7)}, {userCoords.lng.toFixed(7)}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -936,10 +979,10 @@ export default function AbsensiForm({
                             </div>
 
                             {/* Submit */}
-                            {errors.location && (
+                            {(errors as Record<string, string>).location && (
                                 <div className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-400">
                                     <ShieldAlert className="h-4 w-4 shrink-0" />
-                                    {errors.location}
+                                    {(errors as Record<string, string>).location}
                                 </div>
                             )}
                             <Button
