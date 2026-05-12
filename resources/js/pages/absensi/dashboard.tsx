@@ -393,6 +393,143 @@ function DeleteConfirmModal({
     );
 }
 
+// ─── Location Detail Modal ────────────────────────────────────────────────────
+
+function LocationDetailModal({
+    open,
+    onClose,
+    row,
+}: {
+    open: boolean;
+    onClose: () => void;
+    row: AbsensiRow | null;
+}) {
+    if (!row) return null;
+
+    const hasGps = row.user_lat != null && row.user_lng != null;
+    const coordLabel = hasGps
+        ? `${row.user_lat!.toFixed(6)}, ${row.user_lng!.toFixed(6)}`
+        : null;
+    const embedSrc = hasGps
+        ? `https://maps.google.com/maps?q=${row.user_lat},${row.user_lng}&z=17&output=embed&hl=id`
+        : row.lokasi
+            ? `https://maps.google.com/maps?q=${encodeURIComponent(row.lokasi)}&z=15&output=embed&hl=id`
+            : null;
+    const mapsUrl = hasGps
+        ? `https://www.google.com/maps?q=${row.user_lat},${row.user_lng}`
+        : row.lokasi
+            ? `https://www.google.com/maps/search/${encodeURIComponent(row.lokasi)}`
+            : null;
+
+    // Format waktu isi (timestamp)
+    let waktuIsiFormatted = '';
+    if (row.timestamp) {
+        try {
+            const d = new Date(row.timestamp);
+            waktuIsiFormatted = d.toLocaleString('id-ID', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+            });
+        } catch { waktuIsiFormatted = row.timestamp; }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+            <DialogContent className="max-w-2xl p-0 overflow-hidden">
+                {/* Header info absensi */}
+                <div className="relative bg-gradient-to-br from-blue-600 to-violet-600 px-6 py-5 text-white">
+                    <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
+                            <MapPin className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <DialogTitle className="text-lg font-bold text-white">
+                                {row.nama || 'Karyawan'}
+                            </DialogTitle>
+                            <DialogDescription className="text-sm text-blue-100 mt-0.5">
+                                {row.nrp && <>NRP {row.nrp} · </>}
+                                {row.jabatan}
+                                {row.section && <> · {row.section}</>}
+                            </DialogDescription>
+                            {waktuIsiFormatted && (
+                                <p className="mt-2 text-xs text-blue-100">
+                                    🕐 {waktuIsiFormatted}
+                                </p>
+                            )}
+                            <p className="mt-0.5 text-xs text-blue-100">
+                                📍 {row.lokasi || '-'}
+                                {coordLabel && <> · Lat: {row.user_lat!.toFixed(6)}, Lng: {row.user_lng!.toFixed(6)}</>}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-0">
+                    {/* Lokasi Check In */}
+                    <div className="px-6 pt-5">
+                        <div className="flex items-center gap-2 mb-3">
+                            <MapPin className="h-5 w-5 text-blue-600" />
+                            <h3 className="text-base font-bold">Lokasi Check In</h3>
+                        </div>
+
+                        {coordLabel && (
+                            <div className="mb-3 space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground">Koordinat</p>
+                                <p className="font-mono text-sm">{coordLabel}</p>
+                            </div>
+                        )}
+
+                        {!hasGps && row.lokasi && (
+                            <div className="mb-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950/30">
+                                <p className="text-xs text-yellow-800 dark:text-yellow-300">
+                                    ⚠️ Tidak ada koordinat GPS tersimpan. Menampilkan pencarian berdasarkan nama lokasi.
+                                </p>
+                            </div>
+                        )}
+
+                        {!hasGps && !row.lokasi && (
+                            <div className="mb-3 rounded-lg border bg-muted/30 p-8 text-center">
+                                <MapPin className="mx-auto mb-2 h-10 w-10 text-muted-foreground/40" />
+                                <p className="text-sm text-muted-foreground">Tidak ada data lokasi untuk absensi ini</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Peta */}
+                    {embedSrc && (
+                        <div className="px-6 pb-5">
+                            <div className="overflow-hidden rounded-xl border">
+                                <iframe
+                                    key={embedSrc}
+                                    title="Lokasi Check In"
+                                    src={embedSrc}
+                                    className="aspect-video w-full border-0"
+                                    allowFullScreen
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter className="border-t bg-muted/30 px-6 py-3">
+                    {mapsUrl && (
+                        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
+                            <Button variant="outline" className="w-full gap-2">
+                                <ExternalLink className="h-4 w-4" />
+                                Buka di Google Maps
+                            </Button>
+                        </a>
+                    )}
+                    <Button onClick={onClose}>Tutup</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AbsensiDashboard({
@@ -406,6 +543,7 @@ export default function AbsensiDashboard({
     const [batasJam, setBatasJam] = useState(filters.batas_jam ?? '09:00');
     const [deleteRow, setDeleteRow] = useState<AbsensiRow | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [viewLocationRow, setViewLocationRow] = useState<AbsensiRow | null>(null);
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 25;
 
@@ -1264,41 +1402,26 @@ export default function AbsensiDashboard({
                                                         {/* Tombol lihat lokasi */}
                                                         {(() => {
                                                             const hasGps = row.user_lat != null && row.user_lng != null;
-                                                            const mapsUrl = hasGps
-                                                                ? `https://www.google.com/maps?q=${row.user_lat},${row.user_lng}`
-                                                                : row.lokasi
-                                                                    ? `https://www.google.com/maps/search/${encodeURIComponent(row.lokasi)}`
-                                                                    : null;
+                                                            const hasLokasi = !!row.lokasi;
+                                                            const canView = hasGps || hasLokasi;
                                                             const tooltipText = hasGps
                                                                 ? `Lokasi GPS: ${row.user_lat!.toFixed(6)}, ${row.user_lng!.toFixed(6)}`
-                                                                : row.lokasi
-                                                                    ? `Cari lokasi: ${row.lokasi}`
+                                                                : hasLokasi
+                                                                    ? `Lihat lokasi: ${row.lokasi}`
                                                                     : 'Tidak ada data lokasi';
-
-                                                            return mapsUrl ? (
-                                                                <a
-                                                                    href={mapsUrl}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    title={tooltipText}
-                                                                >
-                                                                    <button
-                                                                        type="button"
-                                                                        className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-                                                                            hasGps
-                                                                                ? 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20'
-                                                                                : 'text-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:text-blue-400 dark:hover:bg-blue-900/20'
-                                                                        }`}
-                                                                    >
-                                                                        <Eye className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                </a>
-                                                            ) : (
+                                                            return (
                                                                 <button
                                                                     type="button"
-                                                                    disabled
-                                                                    title="Tidak ada data lokasi"
-                                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/30 cursor-not-allowed"
+                                                                    disabled={!canView}
+                                                                    title={tooltipText}
+                                                                    onClick={() => canView && setViewLocationRow(row)}
+                                                                    className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                                                                        hasGps
+                                                                            ? 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20'
+                                                                            : hasLokasi
+                                                                                ? 'text-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:text-blue-400 dark:hover:bg-blue-900/20'
+                                                                                : 'cursor-not-allowed text-muted-foreground/30'
+                                                                    }`}
                                                                 >
                                                                     <Eye className="h-3.5 w-3.5" />
                                                                 </button>
@@ -1415,6 +1538,11 @@ export default function AbsensiDashboard({
                 onConfirm={handleDelete}
                 nama={deleteRow?.nama ?? ''}
                 processing={isDeleting}
+            />
+            <LocationDetailModal
+                open={viewLocationRow !== null}
+                onClose={() => setViewLocationRow(null)}
+                row={viewLocationRow}
             />
         </>
     );
