@@ -167,6 +167,14 @@ class AbsensiFormController extends Controller
         $validated['sheet_row_hash'] = null;
         $validated['is_modified']    = true;
 
+        // Simpan koordinat GPS user jika tersedia
+        $userLat = $request->input('user_lat');
+        $userLng = $request->input('user_lng');
+        if ($userLat !== null && $userLng !== null) {
+            $validated['user_lat'] = (float) $userLat;
+            $validated['user_lng'] = (float) $userLng;
+        }
+
         Absensi::create($validated);
 
         return redirect()->route('absensi.form.success');

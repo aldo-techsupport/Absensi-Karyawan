@@ -29,6 +29,8 @@ class Absensi extends Model
         'mulai_tidur',
         'bangun_tidur',
         'timestamp',
+        'user_lat',
+        'user_lng',
         'sheet_row_hash',
         'is_modified',
         'deleted_reason',
@@ -37,5 +39,7 @@ class Absensi extends Model
     protected $casts = [
         'is_modified' => 'boolean',
         'deleted_at'  => 'datetime',
+        'user_lat'    => 'float',
+        'user_lng'    => 'float',
     ];
 }

@@ -308,6 +308,8 @@ class AbsensiController extends Controller
             'status_tidur'       => $tidurInfo['status'],
             'status_tidur_color' => $tidurInfo['color'],
             'is_modified'        => (bool) ($record['is_modified'] ?? false),
+            'user_lat'           => isset($record['user_lat']) ? (float) $record['user_lat'] : null,
+            'user_lng'           => isset($record['user_lng']) ? (float) $record['user_lng'] : null,
         ];
     }
 
