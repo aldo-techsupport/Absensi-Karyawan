@@ -167,7 +167,7 @@ export default function AbsensiEdit({ record }: { record: RecordData }) {
     const kegiatanResolved   = resolveOther(KEGIATAN_OPTIONS, record.kegiatan);
     const sectionResolved    = resolveOther(SECTION_OPTIONS, record.section);
 
-    const { data, setData, put, processing, errors } = useForm<FormFields>({
+    const { data, setData, put, processing, errors, transform } = useForm<FormFields>({
         tanggal:          record.tanggal,
         shift:            record.shift,
         waktu_mulai:      record.waktu_mulai,
@@ -194,14 +194,14 @@ export default function AbsensiEdit({ record }: { record: RecordData }) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const payload = {
-            ...data,
-            perusahaan: data.perusahaan === 'Other' ? data.perusahaan_other : data.perusahaan,
-            departemen: data.departemen === 'Other' ? data.departemen_other : data.departemen,
-            kegiatan:   data.kegiatan   === 'Other' ? data.kegiatan_other   : data.kegiatan,
-            section:    data.section    === 'Other' ? data.section_other    : data.section,
-        };
-        put(`/absensi/${record.id}/edit`, { data: payload });
+        transform((formData) => ({
+            ...formData,
+            perusahaan: formData.perusahaan === 'Other' ? formData.perusahaan_other : formData.perusahaan,
+            departemen: formData.departemen === 'Other' ? formData.departemen_other : formData.departemen,
+            kegiatan:   formData.kegiatan   === 'Other' ? formData.kegiatan_other   : formData.kegiatan,
+            section:    formData.section    === 'Other' ? formData.section_other    : formData.section,
+        }));
+        put(`/absensi/${record.id}/edit`);
     };
 
     return (

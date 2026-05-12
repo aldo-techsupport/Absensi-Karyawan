@@ -255,7 +255,7 @@ export default function AbsensiForm({
     const extraFields = Object.entries(formConfigs).filter(
         ([key]) => !['perusahaan', 'departemen', 'kegiatan', 'section', 'lokasi'].includes(key)
     );
-    const { data, setData, post, processing, errors } = useForm<FormFields>({
+    const { data, setData, post, processing, errors, transform } = useForm<FormFields>({
         tanggal: defaultTanggal,
         shift: '',
         waktu_mulai: new Date().toTimeString().slice(0, 5), // otomatis jam sekarang
@@ -415,21 +415,21 @@ export default function AbsensiForm({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (locationBlocked) return; // safety guard
-        post('/absensi/form', {
-            // @ts-expect-error — Inertia useForm supports transform via this pattern
-            data: {
-                ...data,
-                perusahaan: data.perusahaan === 'Other' ? data.perusahaan_other : data.perusahaan,
-                departemen: data.departemen === 'Other' ? data.departemen_other : data.departemen,
-                kegiatan:   data.kegiatan   === 'Other' ? data.kegiatan_other   : data.kegiatan,
-                section:    data.section    === 'Other' ? data.section_other    : data.section,
-                lokasi:     data.lokasi     === 'Other' ? data.lokasi_other     : data.lokasi,
-                judul_kegiatan: data.judul_kegiatan,
-                // Kirim koordinat user ke backend untuk validasi server-side
-                user_lat: userCoords?.lat ?? null,
-                user_lng: userCoords?.lng ?? null,
-            },
-        });
+
+        // Gunakan transform untuk memodifikasi data sebelum dikirim
+        transform((formData) => ({
+            ...formData,
+            perusahaan: formData.perusahaan === 'Other' ? formData.perusahaan_other : formData.perusahaan,
+            departemen: formData.departemen === 'Other' ? formData.departemen_other : formData.departemen,
+            kegiatan:   formData.kegiatan   === 'Other' ? formData.kegiatan_other   : formData.kegiatan,
+            section:    formData.section    === 'Other' ? formData.section_other    : formData.section,
+            lokasi:     formData.lokasi     === 'Other' ? formData.lokasi_other     : formData.lokasi,
+            judul_kegiatan: formData.judul_kegiatan,
+            user_lat: userCoords?.lat ?? null,
+            user_lng: userCoords?.lng ?? null,
+        }));
+
+        post('/absensi/form');
     };
 
     return (
