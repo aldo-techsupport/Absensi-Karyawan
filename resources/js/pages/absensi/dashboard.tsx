@@ -1261,22 +1261,30 @@ export default function AbsensiDashboard({
                                                 {isAdmin && (
                                                 <td className="whitespace-nowrap px-4 py-3">
                                                     <div className="flex items-center gap-1">
-                                                        {row.user_lat != null && row.user_lng != null && (
+                                                        {/* Tombol lihat lokasi — selalu tampil */}
+                                                        {row.user_lat != null && row.user_lng != null ? (
                                                             <a
                                                                 href={`https://www.google.com/maps?q=${row.user_lat},${row.user_lng}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                title={`Lihat lokasi absen: ${row.user_lat?.toFixed(6)}, ${row.user_lng?.toFixed(6)}`}
+                                                                title={`Lokasi absen: ${row.user_lat.toFixed(6)}, ${row.user_lng.toFixed(6)}`}
                                                             >
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-7 w-7 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-                                                                    asChild={false}
+                                                                <button
+                                                                    type="button"
+                                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
                                                                 >
                                                                     <Eye className="h-3.5 w-3.5" />
-                                                                </Button>
+                                                                </button>
                                                             </a>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                disabled
+                                                                title="Tidak ada data lokasi GPS"
+                                                                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/30 cursor-not-allowed"
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5" />
+                                                            </button>
                                                         )}
                                                         <Button
                                                             variant="ghost"
