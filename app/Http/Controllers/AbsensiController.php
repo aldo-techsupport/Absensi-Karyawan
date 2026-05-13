@@ -310,6 +310,7 @@ class AbsensiController extends Controller
             'is_modified'        => (bool) ($record['is_modified'] ?? false),
             'user_lat'           => isset($record['user_lat']) ? (float) $record['user_lat'] : null,
             'user_lng'           => isset($record['user_lng']) ? (float) $record['user_lng'] : null,
+            'selfie_path'        => $record['selfie_path'] ?? null,
         ];
     }
 

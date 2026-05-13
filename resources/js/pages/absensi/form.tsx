@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Loader2, MapPin, Moon, ShieldAlert, Sun } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, Loader2, MapPin, Moon, ShieldAlert, Sun } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,8 @@ type FormFields = {
     nrp: string;
     mulai_tidur: string;
     bangun_tidur: string;
+    user_lat: number | null;
+    user_lng: number | null;
 };
 
 // ─── Helper durasi tidur ──────────────────────────────────────────────────────
@@ -258,7 +260,7 @@ export default function AbsensiForm({
     const { data, setData, post, processing, errors, transform } = useForm<FormFields>({
         tanggal: defaultTanggal,
         shift: '',
-        waktu_mulai: new Date().toTimeString().slice(0, 5), // otomatis jam sekarang
+        waktu_mulai: new Date().toTimeString().slice(0, 5),
         perusahaan: 'PT KPP MINING',
         perusahaan_other: '',
         departemen: 'PLANT',
@@ -276,6 +278,8 @@ export default function AbsensiForm({
         nrp: '',
         mulai_tidur: '',
         bangun_tidur: '',
+        user_lat: null,
+        user_lng: null,
     });
 
     // Update waktu_mulai setiap menit secara real-time (tidak bisa diedit user)
@@ -313,6 +317,7 @@ export default function AbsensiForm({
     const [nearestPoint, setNearestPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
     const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
     const watchIdRef = useRef<number | null>(null);
+    const geoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Haversine formula — returns distance in meters
     function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -354,7 +359,17 @@ export default function AbsensiForm({
 
         setGeoStatus('requesting');
 
+        // Fallback timeout — beberapa device Android tidak memanggil onError saat GPS timeout
+        geoTimeoutRef.current = setTimeout(() => {
+            setGeoStatus('unavailable');
+        }, 20000);
+
         const onSuccess = (pos: GeolocationPosition) => {
+            // Batalkan fallback timeout karena sudah berhasil
+            if (geoTimeoutRef.current != null) {
+                clearTimeout(geoTimeoutRef.current);
+                geoTimeoutRef.current = null;
+            }
             // Cari titik terdekat dan cek apakah dalam radius
             let minDist = Infinity;
             let nearest = activePoints[0];
@@ -382,6 +397,10 @@ export default function AbsensiForm({
         };
 
         const onError = (err: GeolocationPositionError) => {
+            if (geoTimeoutRef.current != null) {
+                clearTimeout(geoTimeoutRef.current);
+                geoTimeoutRef.current = null;
+            }
             if (err.code === GeolocationPositionError.PERMISSION_DENIED) {
                 setGeoStatus('denied');
             } else {
@@ -389,15 +408,18 @@ export default function AbsensiForm({
             }
         };
 
-        const opts: PositionOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+        // maximumAge: 30000 — izinkan cache GPS 30 detik agar device lambat tidak gagal
+        const opts: PositionOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 };
 
-        // Get once immediately, then watch for updates
-        navigator.geolocation.getCurrentPosition(onSuccess, onError, opts);
+        // Gunakan watchPosition saja (sudah mencakup getCurrentPosition pertama kali)
         watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, opts);
 
         return () => {
             if (watchIdRef.current != null) {
                 navigator.geolocation.clearWatch(watchIdRef.current);
+            }
+            if (geoTimeoutRef.current != null) {
+                clearTimeout(geoTimeoutRef.current);
             }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -416,7 +438,7 @@ export default function AbsensiForm({
         e.preventDefault();
         if (locationBlocked) return; // safety guard
 
-        // Gunakan transform untuk memodifikasi data sebelum dikirim
+        // Transform data lalu POST ke /absensi/selfie/prepare → redirect ke halaman selfie
         transform((formData) => ({
             ...formData,
             perusahaan: formData.perusahaan === 'Other' ? formData.perusahaan_other : formData.perusahaan,
@@ -429,7 +451,7 @@ export default function AbsensiForm({
             user_lng: userCoords?.lng ?? null,
         }));
 
-        post('/absensi/form');
+        post('/absensi/selfie/prepare');
     };
 
     return (
@@ -574,7 +596,7 @@ export default function AbsensiForm({
                                     {geoStatus === 'unavailable' && (
                                         <>
                                             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-                                                GPS tidak tersedia di perangkat ini atau sinyal lemah. Pastikan GPS aktif dan coba lagi.
+                                                GPS tidak tersedia atau sinyal lemah. Pastikan GPS aktif, pindah ke area terbuka, lalu coba lagi.
                                             </p>
                                             <Button
                                                 className="w-full"
@@ -1010,8 +1032,8 @@ export default function AbsensiForm({
                                     </span>
                                 ) : (
                                     <span className="flex items-center gap-2">
-                                        <CheckCircle2 className="h-5 w-5" />
-                                        Kirim Absensi
+                                        <Camera className="h-5 w-5" />
+                                        Ambil Foto
                                     </span>
                                 )}
                             </Button>

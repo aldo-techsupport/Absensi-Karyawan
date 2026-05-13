@@ -15,6 +15,9 @@ Route::redirect('/', '/login')->name('home');
 Route::get('absensi/form', [AbsensiFormController::class, 'create'])->name('absensi.form');
 Route::post('absensi/form', [AbsensiFormController::class, 'submit'])->name('absensi.form.submit');
 Route::get('absensi/form/success', [AbsensiFormController::class, 'success'])->name('absensi.form.success');
+Route::post('absensi/selfie/prepare', [AbsensiFormController::class, 'prepareSelfie'])->name('absensi.selfie.prepare');
+Route::get('absensi/selfie', [AbsensiFormController::class, 'selfie'])->name('absensi.selfie');
+Route::post('absensi/selfie', [AbsensiFormController::class, 'selfieSubmit'])->name('absensi.selfie.submit');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');

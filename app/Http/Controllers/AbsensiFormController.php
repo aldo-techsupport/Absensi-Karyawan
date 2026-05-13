@@ -117,6 +117,7 @@ class AbsensiFormController extends Controller
             'judul_kegiatan'  => 'nullable|string|max:500',
             'mulai_tidur'     => 'required|string|max:10',
             'bangun_tidur'    => 'required|string|max:10',
+            'selfie'          => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
         ], [
             'nama.required'         => 'Nama wajib diisi.',
             'nrp.required'          => 'NRP wajib diisi.',
@@ -175,6 +176,15 @@ class AbsensiFormController extends Controller
             $validated['user_lng'] = (float) $userLng;
         }
 
+        // Simpan foto selfie jika ada
+        if ($request->hasFile('selfie')) {
+            $path = $request->file('selfie')->store('selfie', 'public');
+            $validated['selfie_path'] = $path;
+        }
+
+        // Hapus key 'selfie' dari validated agar tidak masuk fillable langsung
+        unset($validated['selfie']);
+
         Absensi::create($validated);
 
         return redirect()->route('absensi.form.success');
@@ -183,6 +193,142 @@ class AbsensiFormController extends Controller
     public function success(): Response
     {
         return Inertia::render('absensi/form-success');
+    }
+
+    /**
+     * Simpan data form ke session, redirect ke halaman selfie.
+     */
+    public function prepareSelfie(Request $request): RedirectResponse
+    {
+        // Cek form terbuka
+        $setting = FormSetting::instance();
+        if (! $setting->isOpen()) {
+            return back()->withErrors(['form' => $setting->closed_message])->withInput();
+        }
+
+        // Validasi data form (sama seperti submit, tapi tanpa selfie)
+        $validated = $request->validate([
+            'nama'            => 'required|string|max:255',
+            'nrp'             => 'required|string|max:50',
+            'jabatan'         => 'required|string|max:255',
+            'section'         => 'required|string|max:255',
+            'lokasi'          => 'required|string|max:255',
+            'departemen'      => 'nullable|string|max:255',
+            'perusahaan'      => 'nullable|string|max:255',
+            'tanggal'         => 'required|date',
+            'shift'           => 'required|string|max:10',
+            'waktu_mulai'     => 'required|string|max:10',
+            'kegiatan'        => 'required|string|max:255',
+            'peran_kegiatan'  => 'nullable|string|max:50',
+            'judul_kegiatan'  => 'nullable|string|max:500',
+            'mulai_tidur'     => 'required|string|max:10',
+            'bangun_tidur'    => 'required|string|max:10',
+            'user_lat'        => 'nullable|numeric',
+            'user_lng'        => 'nullable|numeric',
+        ], [
+            'nama.required'         => 'Nama wajib diisi.',
+            'nrp.required'          => 'NRP wajib diisi.',
+            'jabatan.required'      => 'Jabatan wajib dipilih.',
+            'section.required'      => 'Section wajib dipilih.',
+            'lokasi.required'       => 'Lokasi wajib dipilih.',
+            'tanggal.required'      => 'Tanggal wajib diisi.',
+            'shift.required'        => 'Shift kerja wajib dipilih.',
+            'waktu_mulai.required'  => 'Waktu mulai wajib diisi.',
+            'kegiatan.required'     => 'Kegiatan wajib dipilih.',
+            'mulai_tidur.required'  => 'Jam mulai tidur wajib diisi.',
+            'bangun_tidur.required' => 'Jam bangun tidur wajib diisi.',
+        ]);
+
+        // Validasi peran & judul
+        $kegiatanDenganPeran = ['P5M', 'SAFETY TALK', 'SAFETY ALERT'];
+        $peran = $request->input('peran_kegiatan', '');
+        $isPemateri = in_array($validated['kegiatan'], $kegiatanDenganPeran) && $peran === 'Pemateri';
+
+        if (in_array($validated['kegiatan'], $kegiatanDenganPeran) && empty($peran)) {
+            return back()->withErrors(['peran_kegiatan' => 'Pilih peran Anda (Pemateri atau Audience).'])->withInput();
+        }
+        if ($isPemateri && empty($validated['judul_kegiatan'])) {
+            return back()->withErrors(['judul_kegiatan' => 'Judul kegiatan wajib diisi untuk Pemateri.'])->withInput();
+        }
+
+        // Simpan ke session
+        session(['absensi_pending' => $validated]);
+
+        return redirect()->route('absensi.selfie');
+    }
+
+    /**
+     * Tampilkan halaman selfie.
+     */
+    public function selfie(): Response|RedirectResponse
+    {
+        $pending = session('absensi_pending');
+        if (! $pending) {
+            return redirect()->route('absensi.form');
+        }
+
+        return Inertia::render('absensi/selfie', [
+            'nama'    => $pending['nama'] ?? '',
+            'nrp'     => $pending['nrp'] ?? '',
+            'jabatan' => $pending['jabatan'] ?? '',
+        ]);
+    }
+
+    /**
+     * Submit absensi dari halaman selfie (baca session + upload foto).
+     */
+    public function selfieSubmit(Request $request): RedirectResponse
+    {
+        $pending = session('absensi_pending');
+        if (! $pending) {
+            return redirect()->route('absensi.form');
+        }
+
+        $request->validate([
+            'selfie' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
+        ]);
+
+        $setting = FormSetting::instance();
+        if (! $setting->isOpen()) {
+            return redirect()->route('absensi.form')
+                ->withErrors(['form' => $setting->closed_message]);
+        }
+
+        $validated = $pending;
+
+        // Auto uppercase
+        $validated['nama'] = strtoupper($validated['nama']);
+        $validated['nrp']  = strtoupper($validated['nrp']);
+
+        // Tambahkan ⭐ ke jabatan jika Pemateri
+        $kegiatanDenganPeran = ['P5M', 'SAFETY TALK', 'SAFETY ALERT'];
+        $peran = $validated['peran_kegiatan'] ?? '';
+        $isPemateri = in_array($validated['kegiatan'], $kegiatanDenganPeran) && $peran === 'Pemateri';
+        if ($isPemateri && ! empty($validated['jabatan'])) {
+            $validated['jabatan'] = '⭐ ' . $validated['jabatan'];
+        }
+
+        try {
+            $validated['hari'] = Carbon::parse($validated['tanggal'])
+                ->locale('id')->isoFormat('dddd');
+        } catch (\Exception $e) {}
+
+        $validated['timestamp']      = Carbon::now()->toDateTimeString();
+        $validated['sheet_row_hash'] = null;
+        $validated['is_modified']    = true;
+
+        // Upload selfie
+        if ($request->hasFile('selfie')) {
+            $path = $request->file('selfie')->store('selfie', 'public');
+            $validated['selfie_path'] = $path;
+        }
+
+        Absensi::create($validated);
+
+        // Hapus session setelah berhasil
+        session()->forget('absensi_pending');
+
+        return redirect()->route('absensi.form.success');
     }
 
     /**

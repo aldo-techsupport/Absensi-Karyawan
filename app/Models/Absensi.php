@@ -31,6 +31,7 @@ class Absensi extends Model
         'timestamp',
         'user_lat',
         'user_lng',
+        'selfie_path',
         'sheet_row_hash',
         'is_modified',
         'deleted_reason',

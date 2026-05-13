@@ -79,6 +79,7 @@ interface AbsensiRow {
     selisih_terlambat?: string | null;
     user_lat?: number | null;
     user_lng?: number | null;
+    selfie_path?: string | null;
 }
 
 interface Stats {
@@ -407,6 +408,7 @@ function LocationDetailModal({
     if (!row) return null;
 
     const hasGps = row.user_lat != null && row.user_lng != null;
+    const hasSelfie = !!row.selfie_path;
     const coordLabel = hasGps
         ? `${row.user_lat!.toFixed(6)}, ${row.user_lng!.toFixed(6)}`
         : null;
@@ -420,6 +422,9 @@ function LocationDetailModal({
         : row.lokasi
             ? `https://www.google.com/maps/search/${encodeURIComponent(row.lokasi)}`
             : null;
+    const selfieUrl = row.selfie_path
+        ? `/storage/${row.selfie_path}`
+        : null;
 
     // Format waktu isi (timestamp)
     let waktuIsiFormatted = '';
@@ -435,13 +440,24 @@ function LocationDetailModal({
 
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-            <DialogContent className="max-w-2xl p-0 overflow-hidden">
-                {/* Header info absensi */}
-                <div className="relative bg-gradient-to-br from-blue-600 to-violet-600 px-6 py-5 text-white">
+            {/* max-w-3xl agar cukup untuk dua kolom; di mobile full-width + scroll */}
+            <DialogContent className="max-w-3xl w-full p-0 overflow-hidden max-h-[90vh] flex flex-col">
+
+                {/* ── Header ── */}
+                <div className="relative bg-gradient-to-br from-blue-600 to-violet-600 px-6 py-5 text-white shrink-0">
                     <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
-                            <MapPin className="h-6 w-6" />
-                        </div>
+                        {/* Thumbnail selfie kecil di header jika ada */}
+                        {selfieUrl ? (
+                            <img
+                                src={selfieUrl}
+                                alt="Selfie"
+                                className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-white/40"
+                            />
+                        ) : (
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
+                                <MapPin className="h-6 w-6" />
+                            </div>
+                        )}
                         <div className="flex-1 min-w-0">
                             <DialogTitle className="text-lg font-bold text-white">
                                 {row.nama || 'Karyawan'}
@@ -464,57 +480,85 @@ function LocationDetailModal({
                     </div>
                 </div>
 
-                {/* Body */}
-                <div className="p-0">
-                    {/* Lokasi Check In */}
-                    <div className="px-6 pt-5">
-                        <div className="flex items-center gap-2 mb-3">
-                            <MapPin className="h-5 w-5 text-blue-600" />
-                            <h3 className="text-base font-bold">Lokasi Check In</h3>
+                {/* ── Body — scrollable, split di desktop ── */}
+                <div className="flex-1 overflow-y-auto">
+                    <div className="flex flex-col md:flex-row">
+
+                        {/* ── Kiri: Lokasi & Peta ── */}
+                        <div className={`flex flex-col ${hasSelfie ? 'md:w-1/2' : 'w-full'}`}>
+                            <div className="px-6 pt-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <MapPin className="h-5 w-5 text-blue-600" />
+                                    <h3 className="text-base font-bold">Lokasi Check In</h3>
+                                </div>
+
+                                {coordLabel && (
+                                    <div className="mb-3 space-y-1">
+                                        <p className="text-xs font-medium text-muted-foreground">Koordinat</p>
+                                        <p className="font-mono text-sm">{coordLabel}</p>
+                                    </div>
+                                )}
+
+                                {!hasGps && row.lokasi && (
+                                    <div className="mb-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950/30">
+                                        <p className="text-xs text-yellow-800 dark:text-yellow-300">
+                                            ⚠️ Tidak ada koordinat GPS tersimpan. Menampilkan pencarian berdasarkan nama lokasi.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {!hasGps && !row.lokasi && (
+                                    <div className="mb-3 rounded-lg border bg-muted/30 p-8 text-center">
+                                        <MapPin className="mx-auto mb-2 h-10 w-10 text-muted-foreground/40" />
+                                        <p className="text-sm text-muted-foreground">Tidak ada data lokasi untuk absensi ini</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {embedSrc && (
+                                <div className="px-6 pb-5">
+                                    <div className="overflow-hidden rounded-xl border">
+                                        <iframe
+                                            key={embedSrc}
+                                            title="Lokasi Check In"
+                                            src={embedSrc}
+                                            className="aspect-video w-full border-0"
+                                            allowFullScreen
+                                            loading="lazy"
+                                            referrerPolicy="no-referrer-when-downgrade"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        {coordLabel && (
-                            <div className="mb-3 space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground">Koordinat</p>
-                                <p className="font-mono text-sm">{coordLabel}</p>
-                            </div>
-                        )}
-
-                        {!hasGps && row.lokasi && (
-                            <div className="mb-3 rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-950/30">
-                                <p className="text-xs text-yellow-800 dark:text-yellow-300">
-                                    ⚠️ Tidak ada koordinat GPS tersimpan. Menampilkan pencarian berdasarkan nama lokasi.
-                                </p>
-                            </div>
-                        )}
-
-                        {!hasGps && !row.lokasi && (
-                            <div className="mb-3 rounded-lg border bg-muted/30 p-8 text-center">
-                                <MapPin className="mx-auto mb-2 h-10 w-10 text-muted-foreground/40" />
-                                <p className="text-sm text-muted-foreground">Tidak ada data lokasi untuk absensi ini</p>
+                        {/* ── Kanan: Foto Selfie ── */}
+                        {hasSelfie && (
+                            <div className="flex flex-col md:w-1/2 md:border-l border-t md:border-t-0 border-border">
+                                <div className="px-6 pt-5 pb-5 flex flex-col gap-3 h-full">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-base">📸</span>
+                                        <h3 className="text-base font-bold">Foto Selfie</h3>
+                                    </div>
+                                    <div className="flex-1 overflow-hidden rounded-xl border bg-muted/20">
+                                        <img
+                                            src={selfieUrl!}
+                                            alt={`Selfie ${row.nama}`}
+                                            className="w-full h-full object-cover"
+                                            style={{ maxHeight: '320px' }}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground text-center">
+                                        Diambil saat pengisian absensi
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
-
-                    {/* Peta */}
-                    {embedSrc && (
-                        <div className="px-6 pb-5">
-                            <div className="overflow-hidden rounded-xl border">
-                                <iframe
-                                    key={embedSrc}
-                                    title="Lokasi Check In"
-                                    src={embedSrc}
-                                    className="aspect-video w-full border-0"
-                                    allowFullScreen
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer-when-downgrade"
-                                />
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                <DialogFooter className="border-t bg-muted/30 px-6 py-3">
+                {/* ── Footer ── */}
+                <DialogFooter className="border-t bg-muted/30 px-6 py-3 shrink-0">
                     {mapsUrl && (
                         <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
                             <Button variant="outline" className="w-full gap-2">
