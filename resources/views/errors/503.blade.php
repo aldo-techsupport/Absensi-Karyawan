@@ -378,7 +378,8 @@
       <h1 class="title">Website <span>Dihentikan</span></h1>
 
       <p class="description">
-        Maaf, situs ini telah dihentikan sementara oleh administrator. 
+        Maaf, situs ini telah dihentikan sementara oleh administrator, 
+        Silahkan Lakukan Pembayaran server karena masa berlaku sudah habis. 
         Hubungi administrator untuk informasi lebih lanjut.
       </p>
 
